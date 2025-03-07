@@ -20,7 +20,11 @@ def decimate(tensor , m) :
             slices.append(slice(None))
         else : 
             slices.append(slice(None , None , factor))
-
+    print(slices)
     return tensor[slices]
 
 
+fc = torch.rand(4096 , 512 , 7 , 7)
+
+conv = decimate(fc , m=[4 , None , 3 , 3])
+print(conv.shape)

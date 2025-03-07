@@ -156,13 +156,49 @@ class AuxiliaryConvlutions(nn.Module):
         self.conv11_1 = nn.Conv2d(256, 128, kernel_size=1, padding=0)
         self.conv11_2 = nn.Conv2d(128, 256, kernel_size=3, padding=0)
 
+        # init our conv parms 
+        self.init_convs()
+
     def init_convs(self) : 
         """
             Initialize convulution parmaeters 
         """
-        
+        for c in self.children() : 
+            if isinstance(c, nn.Conv2d) : 
+                nn.init.xavier_uniform_(c.weight)
+                nn.init.constant_(c.bias , 0.)
 
 
+    def forward(self, conv7_feats):
+        """
+        Forward propagation.
+        Args 
+
+            conv7_feats: lower-level conv7 feature map, a tensor of dimensions (N, 1024, 19, 19)
+    
+        Output 
+            higher-level feature maps conv8_2, conv9_2, conv10_2, and conv11_2
+        """
+        x = F.relu(self.conv8_1(conv7_feats)) 
+        x = F.relu(self.conv8_2(x)) 
+        conv8_2_feats = x
+
+        x = F.relu(self.conv9_1(x))
+        x = F.relu(self.conv9_2(x)) 
+        conv9_2_feats = x  # (N, 256, 5, 5)
+
+        x = F.relu(self.conv10_1(x)) 
+        x = F.relu(self.conv10_2(x))  
+        conv10_2_feats = x  # (N, 256, 3, 3)
+
+        x = F.relu(self.conv11_1(x)) 
+        conv11_2_feats = F.relu(self.conv11_2(x)) 
+
+        # Higher-level feature maps
+        return conv8_2_feats, conv9_2_feats, conv10_2_feats, conv11_2_feats
+    
+
+    
 
 
 
