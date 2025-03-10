@@ -24,7 +24,21 @@ def decimate(tensor , m) :
     return tensor[slices]
 
 
-fc = torch.rand(4096 , 512 , 7 , 7)
+import torch
 
-conv = decimate(fc , m=[4 , None , 3 , 3])
-print(conv.shape)
+def cxcy_to_xy(cxcy):
+    """
+    Convert center-form (cx, cy, w, h) bounding boxes to corner-form (x_min, y_min, x_max, y_max).
+    
+    Args:
+        cxcy: Tensor of shape (n_boxes, 4), where each box is (cx, cy, w, h).
+    
+    Returns:
+        Tensor of shape (n_boxes, 4), where each box is (x_min, y_min, x_max, y_max).
+    """
+    xy_min = cxcy[:, :2] - cxcy[:, 2:] / 2
+    xy_max = cxcy[:, :2] + cxcy[:, 2:] / 2
+
+    return torch.cat([xy_min, xy_max], dim=1) 
+
+

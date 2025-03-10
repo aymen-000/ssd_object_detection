@@ -425,7 +425,26 @@ class SSD300(nn.Module) :
 
 
 
+    def detect_objects(self , pred_locs , pred_scores , threshold , max_overlap , k) : 
+        """
+            Decipher the 8732 locations and class scores (output of ths SSD300) to detect objects.
 
+            For each class, perform Non-Maximum Suppression (NMS) on boxes that are above a minimum threshold.
+
+            Args : 
+
+            Retrurn  : 
+
+        """
+
+        batch_size = pred_locs.size(0)
+        
+        pred_scores = F.softmax(pred_scores , dim=2) 
+
+        final_img_bbox = []
+        final_img_labels = []
+        final_img_scores = []
+ 
 
 
 
