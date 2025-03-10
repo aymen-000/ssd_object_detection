@@ -196,9 +196,138 @@ class AuxiliaryConvlutions(nn.Module):
 
         # Higher-level feature maps
         return conv8_2_feats, conv9_2_feats, conv10_2_feats, conv11_2_feats
+
+
+
+class PredictionConvolutions(nn.Module):
+    """
+    Convolutions to predict bbox and scores for higher and lower feature maps.
+    bbox predicted as offset.
+    score represents the score of each object class in each bbox which is located.
+    Note: higher score of "background" => no object
+    """
+    def __init__(self, n_classes, **kwargs):
+        super(PredictionConvolutions, self).__init__()
+        self.n_classes = n_classes
+        # define the number of bboxes in each feature map
+        self.n_boxes = {
+            "conv4_3": 4,  # means we used 4 different aspect ratios ...etc
+            "conv7": 6,
+            "conv8_2": 6,
+            "conv9_2": 6,
+            "conv10_2": 4,
+            "conv11_2": 4
+        }
+        
+        # Input channels for each feature map
+        self.input_channels = {
+            "conv4_3": 512,
+            "conv7": 1024,
+            "conv8_2": 512,
+            "conv9_2": 256,
+            "conv10_2": 256,
+            "conv11_2": 256
+        }
+        
+        # Create all bbox and class prediction convolutions using get_bbox_cls
+        self.loc_conv4_3, self.cl_conv4_3 = self.get_bbox_cls("conv4_3", self.input_channels["conv4_3"])
+        self.loc_conv7, self.cl_conv7 = self.get_bbox_cls("conv7", self.input_channels["conv7"])
+        self.loc_conv8_2, self.cl_conv8_2 = self.get_bbox_cls("conv8_2", self.input_channels["conv8_2"])
+        self.loc_conv9_2, self.cl_conv9_2 = self.get_bbox_cls("conv9_2", self.input_channels["conv9_2"])
+        self.loc_conv10_2, self.cl_conv10_2 = self.get_bbox_cls("conv10_2", self.input_channels["conv10_2"])
+        self.loc_conv11_2, self.cl_conv11_2 = self.get_bbox_cls("conv11_2", self.input_channels["conv11_2"])
     
+    def get_bbox_cls(self, feat_name, input_channels):
+        """
+        Helper function to create bbox and class prediction convolutions
+        
+        Args:
+            feat_name: Feature map identifier (e.g., 'conv4_3')
+            input_channels: Number of input channels
+            
+        Returns:
+            tuple: (bbox_predictor, class_predictor) convolution layers
+        """
+        bbox = nn.Conv2d(input_channels, self.n_boxes[feat_name] * 4, kernel_size=3, padding=1)
+        cls = nn.Conv2d(input_channels, self.n_boxes[feat_name] * self.n_classes, kernel_size=3, padding=1)
+        return bbox, cls
+    
+    def reshape_conv_output(self, output, batch_size, n_values):
+        """
+        Reshape convolutional output for detection processing
+        
+        Args:
+            output: Conv output tensor of shape (batch_size, channels, height, width)
+            batch_size: Batch size
+            n_values: Number of values per box (4 for locations, n_classes for class scores)
+            
+        Returns:
+            Reshaped tensor of shape (batch_size, height*width*n_boxes, n_values)
+        """
+        # Permute dimensions to (batch_size, height, width, channels)
+        output = output.permute(0, 2, 3, 1).contiguous()
+        # Reshape to (batch_size, height*width*n_boxes, n_values)
+        output = output.view(batch_size, -1, n_values)
+        return output
+    
+    def forward(self, conv4_3_feats, conv7_feats, conv8_2_feats, conv9_2_feats, conv10_2_feats, conv11_2_feats):
+        """
+        Forward propagation.
+        
+        Args:
+            conv4_3_feats: conv4_3 feature map, a tensor of dimensions (N, 512, H_4, W_4)
+            conv7_feats: conv7 feature map, a tensor of dimensions (N, 1024, H_7, W_7)
+            conv8_2_feats: conv8_2 feature map, a tensor of dimensions (N, 512, H_8, W_8)
+            conv9_2_feats: conv9_2 feature map, a tensor of dimensions (N, 256, H_9, W_9)
+            conv10_2_feats: conv10_2 feature map, a tensor of dimensions (N, 256, H_10, W_10)
+            conv11_2_feats: conv11_2 feature map, a tensor of dimensions (N, 256, H_11, W_11)
+            
+        Returns:
+            all_locs, all_classes encoded as (N, n_boxes_total, 4) and (N, n_boxes_total, n_classes)
+        """
+        batch_size = conv4_3_feats.size(0)
+        
+        # Predict bounding box coordinates
+        l_conv4_3 = self.loc_conv4_3(conv4_3_feats)  # (N, 16, 38, 38)
+        l_conv7 = self.loc_conv7(conv7_feats)  # (N, 24, 19, 19)
+        l_conv8_2 = self.loc_conv8_2(conv8_2_feats)  # (N, 24, 10, 10)
+        l_conv9_2 = self.loc_conv9_2(conv9_2_feats)  # (N, 24, 5, 5)
+        l_conv10_2 = self.loc_conv10_2(conv10_2_feats)  # (N, 16, 3, 3)
+        l_conv11_2 = self.loc_conv11_2(conv11_2_feats)  # (N, 16, 1, 1)
+        
+        # Reshape location predictions using our function
+        l_conv4_3 = self.reshape_conv_output(l_conv4_3, batch_size, 4)  # (N, 5776, 4)
+        l_conv7 = self.reshape_conv_output(l_conv7, batch_size, 4)  # (N, 2166, 4)
+        l_conv8_2 = self.reshape_conv_output(l_conv8_2, batch_size, 4)  # (N, 600, 4)
+        l_conv9_2 = self.reshape_conv_output(l_conv9_2, batch_size, 4)  # (N, 150, 4)
+        l_conv10_2 = self.reshape_conv_output(l_conv10_2, batch_size, 4)  # (N, 36, 4)
+        l_conv11_2 = self.reshape_conv_output(l_conv11_2, batch_size, 4)  # (N, 4, 4)
+        
+        # Predict class scores
+        c_conv4_3 = self.cl_conv4_3(conv4_3_feats)  # (N, 4 * n_classes, 38, 38)
+        c_conv7 = self.cl_conv7(conv7_feats)  # (N, 6 * n_classes, 19, 19)
+        c_conv8_2 = self.cl_conv8_2(conv8_2_feats)  # (N, 6 * n_classes, 10, 10)
+        c_conv9_2 = self.cl_conv9_2(conv9_2_feats)  # (N, 6 * n_classes, 5, 5)
+        c_conv10_2 = self.cl_conv10_2(conv10_2_feats)  # (N, 4 * n_classes, 3, 3)
+        c_conv11_2 = self.cl_conv11_2(conv11_2_feats)  # (N, 4 * n_classes, 1, 1)
+        
+        # Reshape class predictions using our function
+        c_conv4_3 = self.reshape_conv_output(c_conv4_3, batch_size, self.n_classes)  # (N, 5776, n_classes)
+        c_conv7 = self.reshape_conv_output(c_conv7, batch_size, self.n_classes)  # (N, 2166, n_classes)
+        c_conv8_2 = self.reshape_conv_output(c_conv8_2, batch_size, self.n_classes)  # (N, 600, n_classes)
+        c_conv9_2 = self.reshape_conv_output(c_conv9_2, batch_size, self.n_classes)  # (N, 150, n_classes)
+        c_conv10_2 = self.reshape_conv_output(c_conv10_2, batch_size, self.n_classes)  # (N, 36, n_classes)
+        c_conv11_2 = self.reshape_conv_output(c_conv11_2, batch_size, self.n_classes)  # (N, 4, n_classes)
+        
+        # Concatenate all predictions
+        locs = torch.cat([l_conv4_3, l_conv7, l_conv8_2, l_conv9_2, l_conv10_2, l_conv11_2], dim=1)
+        classes_scores = torch.cat([c_conv4_3, c_conv7, c_conv8_2, c_conv9_2, c_conv10_2, c_conv11_2], dim=1)
+        
+        return locs, classes_scores
 
     
+
+class SSD300(nn.Mo)
 
 
 
