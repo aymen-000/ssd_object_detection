@@ -371,7 +371,57 @@ class SSD300(nn.Module) :
 
         return locs , cls_scores
 
-    
+
+    def create_prior_boxes(self) : 
+        """
+            Create the 8732 prior (deafult) boxes for SSD300
+        """
+
+
+        fmap_dims = {
+            'conv4_3' : 38 , 
+            'conv7' : 19 , 
+            'conv8_2' : 10, 
+            'conv9_2' : 5 , 
+            'conv10_2' : 3, 
+            'conv11_2' : 1
+        }
+
+        obj_scales = {
+            'conv4_3' : 0.1 , # define the scale to detect objects (various sizes)
+            'conv7' : 0.2 , 
+            'conv8_2' : 0.375, 
+            'conv9_2' : 0.55 , 
+            'conv10_2' : 0.725, 
+            'conv11_2' : 0.9 
+        }
+        aspect_ratios = {'conv4_3': [1., 2., 0.5],
+                         'conv7': [1., 2., 3., 0.5, .333],
+                         'conv8_2': [1., 2., 3., 0.5, .333],
+                         'conv9_2': [1., 2., 3., 0.5, .333],
+                         'conv10_2': [1., 2., 0.5],
+                         'conv11_2': [1., 2., 0.5]}
+
+
+        prior_boxes = []
+
+        for k , fmap in list(fmap_dims.keys()) : 
+            for i in range(fmap_dims[fmap]) : 
+                for j in range(fmap_dims[fmap]) : 
+                    cx = (j+0.5) / fmap_dims[fmap]
+                    cy = (i+ 0.5) / fmap_dims[fmap]
+
+                    for ratio in aspect_ratios[fmap] : 
+                        prior_boxes.append([cx , cy , obj_scales[fmap]*sqrt(ratio) , obj_scales[fmap]/ sqrt(ratio)])
+
+                        if ratio == 1 : 
+                            try : 
+                                scale =sqrt(obj_scales[fmap]*obj_scales[fmap[k+1]])
+                            except IndexError : 
+                                scale = 1 
+                            prior_boxes.append([cx , cy , scale , scale])
+
+        return torch.FloatTensor(prior_boxes).to(device=device)
 
 
 
