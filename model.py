@@ -327,7 +327,58 @@ class PredictionConvolutions(nn.Module):
 
     
 
-class SSD300(nn.Mo)
+class SSD300(nn.Module) : 
+    """
+        SSD300 network 
+
+    """
+
+    def __init__(self, n_classes, **kwargs):
+        super(SSD300).__init__()
+        
+        self.n_classes = n_classes
+
+        self.model =VGGBaseModel()
+        self.aux_conv = AuxiliaryConvlutions()
+        self.pred_convs = PredictionConvolutions(n_classes=n_classes)
+
+        self.scal_f = nn.Parameter(torch.FloatTensor(1,412 , 1, 1))
+        nn.init.constant_(self.scal_f , 20)
+
+    def forward(self , image)  :
+        """
+            Forward Propagation 
+
+            Args : 
+                image : (N, 3 , 300 , 300)
+
+            Return : 
+                8732 locations and class scores 
+        """
+
+        # Run VGG16 on the model 
+        conv4_3_feats , conv7_feats = self.model(image) # return (N , 512 , 38 , 38) , (N ,1024 , 19 , 19)
+        mean = conv4_3_feats.sum(dim=1, keepdim=True) / 512  # Compute mean 
+        norm = (conv4_3_feats - mean).pow(2).sum(dim=1, keepdim=True) / 512  # Compute variance
+        conv4_3_feats = ((conv4_3_feats - mean) / (norm.sqrt() + 1e-6)) * self.scal_f  # Normalize
+
+
+        # more more featur extraction 
+        conv8_2_feats, conv9_2_feats, conv10_2_feats, conv11_2_feats = self.aux_conv(conv7_feats)
+
+        # Run predection 
+        locs , cls_scores = self.pred_convs(conv4_3_feats , conv7_feats , conv8_2_feats , conv9_2_feats , conv10_2_feats, conv11_2_feats) # we will get (N , nboxes , 4) , (N , nboxes , nclasses)
+
+        return locs , cls_scores
+
+    
+
+
+
+
+
+
+
 
 
 
