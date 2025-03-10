@@ -344,7 +344,7 @@ class SSD300(nn.Module) :
 
         self.scal_f = nn.Parameter(torch.FloatTensor(1,412 , 1, 1))
         nn.init.constant_(self.scal_f , 20)
-
+        self.priors = self.create_prior_boxes()
     def forward(self , image)  :
         """
             Forward Propagation 
@@ -444,6 +444,26 @@ class SSD300(nn.Module) :
         final_img_bbox = []
         final_img_labels = []
         final_img_scores = []
+
+        for i in range(batch_size) : 
+            
+            locs = cxcy_to_xy(
+                pred_to_boxes(pred_locs[i] ,self.priors) # model correct predections
+            ) # turn to x_min , x_max , y_min , y_max
+
+            images_boxes = []
+            images_labels = []
+            images_scores = []
+
+            max_scr , best_label = pred_scores[i].max(dim=1)
+
+            for c in range(1 , self.n_classes) : 
+                class_scores = pred_scores[i][: , c] 
+                score_abover_threshold = class_scores > threshold 
+                n_above_threshold = score_abover_threshold.sum().item()
+                if n_above_threshold == 0 : 
+                    continue
+                class_scores = class_scores[score_abover_threshold]
  
 
 

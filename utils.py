@@ -42,3 +42,21 @@ def cxcy_to_xy(cxcy):
     return torch.cat([xy_min, xy_max], dim=1) 
 
 
+def pred_to_boxes(gcxgcy, priors):
+    """
+    Convert predicted bounding box coordinates (gcxgcy format) to absolute coordinates (cxcywh format)
+    
+    Args:
+        gcxgcy: predicted bounding boxes in gcxgcy format, a tensor of size (n_priors, 4)
+        priors: prior boxes with respect to which the predictions are made, a tensor of size (n_priors, 4)
+        
+    Returns:
+        Converted bounding boxes in cxcywh format, a tensor of size (n_priors, 4)
+    """
+    return torch.cat([
+        priors[:, :2] + gcxgcy[:, :2] * priors[:, 2:] / 10,  # c_x, c_y
+        priors[:, 2:] * torch.exp(gcxgcy[:, 2:] / 5)         # w, h
+    ], dim=1)
+
+
+
