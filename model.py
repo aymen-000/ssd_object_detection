@@ -425,53 +425,200 @@ class SSD300(nn.Module) :
 
 
 
-    def detect_objects(self , pred_locs , pred_scores , threshold , max_overlap , k) : 
-        """
-            Decipher the 8732 locations and class scores (output of ths SSD300) to detect objects.
-
-            For each class, perform Non-Maximum Suppression (NMS) on boxes that are above a minimum threshold.
-
-            Args : 
-
-            Retrurn  : 
-
-        """
-
-        batch_size = pred_locs.size(0)
+def detect_objects(self, pred_locs, pred_scores, threshold, max_overlap, k):
+    """
+    Decipher the 8732 locations and class scores (output of the SSD300) to detect objects.
+    For each class, perform Non-Maximum Suppression (NMS) on boxes that are above a minimum threshold.
+    
+    Args:
+        pred_locs: Predicted locations/boxes w.r.t prior-boxes, a tensor of dimensions (batch_size, 8732, 4)
+        pred_scores: Class scores for each of the encoded locations/boxes, a tensor of dimensions (batch_size, 8732, n_classes)
+        threshold: Minimum threshold for a box to be considered a match for a certain class
+        max_overlap: Maximum overlap two boxes can have so that the one with the lower score is not suppressed via NMS
+        k: The top k detections with highest scores are returned
         
-        pred_scores = F.softmax(pred_scores , dim=2) 
-
-        final_img_bbox = []
-        final_img_labels = []
-        final_img_scores = []
-
-        for i in range(batch_size) : 
+    Returns:
+        final_img_bbox: List of tensors of dimensions (n_objects, 4) containing box coordinates for each image
+        final_img_labels: List of tensors of dimensions (n_objects) containing object class labels for each image
+        final_img_scores: List of tensors of dimensions (n_objects) containing object scores for each image
+    """
+    batch_size = pred_locs.size(0)
+    pred_scores = F.softmax(pred_scores, dim=2)  # (batch_size, 8732, n_classes)
+    
+    final_img_bbox = []
+    final_img_labels = []
+    final_img_scores = []
+    
+    # For each image in the batch
+    for i in range(batch_size):
+        # Convert locations from (center x, center y, w, h) to (x_min, y_min, x_max, y_max)
+        locs = cxcy_to_xy(
+            pred_to_boxes(pred_locs[i], self.priors)  # model correct predictions
+        )  # (8732, 4) - turn to x_min, y_min, x_max, y_max
+        
+        image_boxes = []
+        image_labels = []
+        image_scores = []
+        
+        # For each class (except background)
+        for c in range(1, self.n_classes):
+            # Extract class scores for this class
+            class_scores = pred_scores[i][:, c]  # (8732)
             
-            locs = cxcy_to_xy(
-                pred_to_boxes(pred_locs[i] ,self.priors) # model correct predections
-            ) # turn to x_min , x_max , y_min , y_max
+            # Keep only boxes with scores above threshold
+            score_above_threshold = class_scores > threshold
+            n_above_threshold = score_above_threshold.sum().item()
+            
+            if n_above_threshold == 0:
+                continue
+                
+            # Extract boxes and scores that are above threshold
+            class_scores = class_scores[score_above_threshold]  # (n_qualified)
+            class_locs = locs[score_above_threshold]  # (n_qualified, 4)
+            
+            # Sort boxes by decreasing scores
+            sorted_scores, sort_idx = class_scores.sort(dim=0, descending=True)
+            sorted_locs = class_locs[sort_idx]  # (n_qualified, 4)
+            
+            # Calculate IoU between all pairs of boxes
+            overlap = find_jaccard_overlap(sorted_locs, sorted_locs)  # (n_qualified, n_qualified)
+            
+            # Apply non-maximum suppression
+            keep = non_maximum_suppression(sorted_locs, self.device, overlap, max_overlap)
+            
+            # Store boxes, labels, and scores for this class
+            image_boxes.append(sorted_locs[keep])
+            image_labels.append(torch.LongTensor([c] * len(keep)).to(self.device))
+            image_scores.append(sorted_scores[keep])
+        
+        # If no object in any class is found, store a placeholder for 'background'
+        if len(image_boxes) == 0:
+            image_boxes.append(torch.FloatTensor([[0., 0., 1., 1.]]).to(self.device))
+            image_labels.append(torch.LongTensor([0]).to(self.device))
+            image_scores.append(torch.FloatTensor([0.]).to(self.device))
+        
+        # Concatenate into single tensors
+        image_boxes = torch.cat(image_boxes, dim=0)  # (n_objects, 4)
+        image_labels = torch.cat(image_labels, dim=0)  # (n_objects)
+        image_scores = torch.cat(image_scores, dim=0)  # (n_objects)
+        n_objects = image_scores.size(0)
+        
+        # Keep only the top k objects
+        if n_objects > k:
+            image_scores, sort_ind = image_scores.sort(dim=0, descending=True)
+            image_scores = image_scores[:k]  # (top_k)
+            image_boxes = image_boxes[sort_ind][:k]  # (top_k, 4)
+            image_labels = image_labels[sort_ind][:k]  # (top_k)
+        
+        # Append to lists that store predicted boxes and scores for all images
+        final_img_bbox.append(image_boxes)
+        final_img_labels.append(image_labels)
+        final_img_scores.append(image_scores)
+    
+    return final_img_bbox, final_img_labels, final_img_scores
 
-            images_boxes = []
-            images_labels = []
-            images_scores = []
 
-            max_scr , best_label = pred_scores[i].max(dim=1)
 
-            for c in range(1 , self.n_classes) : 
-                class_scores = pred_scores[i][: , c] 
-                score_abover_threshold = class_scores > threshold 
-                n_above_threshold = score_abover_threshold.sum().item()
-                if n_above_threshold == 0 : 
-                    continue
-                class_scores = class_scores[score_abover_threshold] ## get classes with higher score (above threshold)
-                locs = locs[score_abover_threshold]  # get location (nboxes_with_higher_score , 4)
+# define Loss function 
+class BoxLoss(nn.Module):
+    """
+    Loss function for object detection combining location loss and confidence loss.
+    """
 
-                sorted_class_scores , index =class_scores.sort(dim=0)
-                sorted_locs = locs[index]
+    def __init__(self, priors, threshold=0.5, neg_pos_ratio=2, alpha=1.):
+        super(BoxLoss, self).__init__()
 
-                # IOU  part  
+        self.priors = priors 
+        self.priors_xy = cxcy_to_xy(self.priors)
+        self.threshold = threshold 
+        self.neg_pos_ratio = neg_pos_ratio 
+        self.alpha = alpha 
 
-                overlap = find_jaccard_overlap(sorted_class_scores) # # (n_qualified, n_qualified)
+        self.smoothL1 = nn.L1Loss()  # Used in the paper
+        self.crossEntropy = nn.CrossEntropyLoss(reduction='none')  # ✅ Fixed
+
+    def forward(self, predicted_locs, predicted_scores, boxes, labels):  
+        """
+        Forward pass
+        Args:
+            predicted_locs: (batch_size, num_priors, 4)
+            predicted_scores: (batch_size, num_priors, num_classes)
+            boxes: Ground truth bounding boxes
+            labels: Ground truth labels
+        Returns:
+            Loss (scalar)
+        """
+
+        batch_size = predicted_locs.shape[0]
+        n_priors = self.priors.shape[0]
+        n_classes = predicted_scores.shape[2]
+
+        assert n_priors == predicted_locs.shape[1] == predicted_scores.shape[1]
+
+        true_locs = torch.zeros((batch_size, n_priors, 4), dtype=torch.float).to(device)
+        true_classes = torch.zeros((batch_size, n_priors), dtype=torch.long).to(device) 
+
+        for i in range(batch_size):
+            n_objects = boxes[i].shape[0]
+
+            overlap = find_jaccard_overlap(boxes[i], self.priors_xy)
+            
+            # Find max overlap for each prior
+            overlap_for_each_prior, object_for_each_prior = overlap.max(dim=0)
+            _, prior_for_each_object = overlap.max(dim=1)
+
+            object_for_each_prior[prior_for_each_object] = torch.arange(n_objects, device=device)  
+            overlap_for_each_prior[prior_for_each_object] = 1  # Ensure it gets assigned
+
+            # Assign labels
+            label_for_each_prior = labels[i][object_for_each_prior]
+            label_for_each_prior[overlap_for_each_prior < self.threshold] = 0  # Set background
+
+            # Store
+            true_classes[i] = label_for_each_prior
+            true_locs[i] = cxcy_to_xy(pred_to_boxes(boxes[i][object_for_each_prior], self.priors))
+        
+        positive_priors = true_classes != 0
+
+        # Localization loss (only for positive priors)
+        locs_loss = self.smoothL1(predicted_locs[positive_priors], true_locs[positive_priors])  
+
+        # Confidence loss
+        n_positives = positive_priors.sum(dim=1)  # (N)
+        n_hard_negatives = self.neg_pos_ratio * n_positives  # (N)
+        
+        conf_loss_all = self.crossEntropy(predicted_scores.view(-1, n_classes), true_classes.view(-1))
+        conf_loss_all = conf_loss_all.view(batch_size, n_priors)  # (N, 8732)
+
+        conf_loss_pos = conf_loss_all[positive_priors]
+        
+        conf_loss_neg = conf_loss_all.clone()
+        conf_loss_neg[positive_priors] = 0.
+        conf_loss_neg, _ = conf_loss_neg.sort(dim=1, descending=True)
+
+        hardness_ranks = torch.arange(n_priors, device=device).unsqueeze(0).expand_as(conf_loss_neg)  
+        hard_negatives = hardness_ranks < n_hard_negatives.unsqueeze(1)
+        conf_loss_hard_neg = conf_loss_neg[hard_negatives]
+
+        conf_loss = (conf_loss_hard_neg.sum() + conf_loss_pos.sum()) / (n_positives.sum().float() + 1e-6)  # Prevent division by zero
+
+        return conf_loss + self.alpha * locs_loss
+
+
+
+
+        
+
+
+
+
+
+
+ 
+
+
+
+
                 
 
 

@@ -59,28 +59,73 @@ def pred_to_boxes(gcxgcy, priors):
     ], dim=1)
 
 
-def find_jaccard_overlap(set1 , set2) : 
+def find_jaccard_overlap(set1, set2):
     """
-     Find IOU of every comibination between set1 (set of bboxes) 
-
-     Args : 
-        set1 ,set2 : a tensor of dimension (n , 4) # n is the number of bboxes
-
-    Output : 
-            IOU of between every element 
+    Find IoU (Intersection over Union) of every combination between set1 and set2 (sets of bboxes)
+    
+    Args:
+        set1, set2: tensors of dimension (n, 4) where n is the number of bboxes
+                    Format: each box is [x_min, y_min, x_max, y_max]
+    
+    Output:
+        IoU between every element as a tensor of shape (n1, n2)
     """
-    n1 , n2 = set1.shape()[0] , set2.shape()[0]
-    lower_bound_intersection = torch.zeros((n1 , n2 , 2))
-    upper_bound_intersection = torch.zeros((n1 , n2 , 2))
-    for i in range(n1) : 
-        for j in range(n2) : 
-            lower_bound_intersection[i , j ] = torch.max(set1[i , :2] , set2[j , :2])
-            upper_bound_intersection[i , j] = torch.min(set1[i , 2:] , set2[j , 2:])
-    intersection_dime = torch.clamp(upper_bound_intersection - lower_bound_intersection , min=0) 
-
-
-    intersection =  intersection_dime[ : , : , 0] * intersection_dime[: , : , 1] 
+    # Get number of boxes in each set
+    n1, n2 = set1.shape[0], set2.shape[0]
     
-
-
+    # Initialize tensors for intersection bounds
+    lower_bound_intersection = torch.zeros((n1, n2, 2))
+    upper_bound_intersection = torch.zeros((n1, n2, 2))
     
+    # Find intersection bounds
+    for i in range(n1):
+        for j in range(n2):
+            lower_bound_intersection[i, j] = torch.max(set1[i, :2], set2[j, :2])
+            upper_bound_intersection[i, j] = torch.min(set1[i, 2:], set2[j, 2:])
+    
+    # Calculate intersection areas
+    intersection_dims = torch.clamp(upper_bound_intersection - lower_bound_intersection, min=0)
+    intersection = intersection_dims[:, :, 0] * intersection_dims[:, :, 1]
+    
+    # Find the area of each box in both sets
+    dx_set1 = set1[:, 2] - set1[:, 0]
+    dy_set1 = set1[:, 3] - set1[:, 1]
+    dx_set2 = set2[:, 2] - set2[:, 0]
+    dy_set2 = set2[:, 3] - set2[:, 1]
+    
+    areas_set1 = dx_set1 * dy_set1
+    areas_set2 = dx_set2 * dy_set2
+    
+    # Calculate union areas
+    union = areas_set1.unsqueeze(1) + areas_set2.unsqueeze(0) - intersection
+    
+    # Return IoU
+    return intersection / union
+
+
+def non_maximum_suppression(boxes: torch.Tensor, device, iou: torch.Tensor, max_overlap: float):
+    """
+    Perform Non-Maximum Suppression (NMS) on a set of bounding boxes.
+
+    :param boxes: Tensor of shape (n, 4) containing bounding box coordinates.
+    :param device: The device to use (CPU or GPU).
+    :param iou: Precomputed IoU matrix of shape (n, n).
+    :param max_overlap: IoU threshold for suppression.
+    :return: Indices of the boxes to keep.
+    """
+    n = boxes.shape[0]
+    suppress = torch.zeros(n, dtype=torch.bool, device=device) 
+    
+    for i in range(n):
+        if suppress[i]:  # If already suppressed, skip
+            continue
+        
+        # Vectorized suppression: mark all boxes with IoU > max_overlap
+        suppress |= (iou[i] > max_overlap)
+
+        # But don't suppress the current box itself
+        suppress[i] = False  
+
+    # Return indices of boxes that were not suppressed
+    keep = torch.where(~suppress)[0]
+    return keep
