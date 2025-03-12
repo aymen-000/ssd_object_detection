@@ -59,4 +59,28 @@ def pred_to_boxes(gcxgcy, priors):
     ], dim=1)
 
 
+def find_jaccard_overlap(set1 , set2) : 
+    """
+     Find IOU of every comibination between set1 (set of bboxes) 
 
+     Args : 
+        set1 ,set2 : a tensor of dimension (n , 4) # n is the number of bboxes
+
+    Output : 
+            IOU of between every element 
+    """
+    n1 , n2 = set1.shape()[0] , set2.shape()[0]
+    lower_bound_intersection = torch.zeros((n1 , n2 , 2))
+    upper_bound_intersection = torch.zeros((n1 , n2 , 2))
+    for i in range(n1) : 
+        for j in range(n2) : 
+            lower_bound_intersection[i , j ] = torch.max(set1[i , :2] , set2[j , :2])
+            upper_bound_intersection[i , j] = torch.min(set1[i , 2:] , set2[j , 2:])
+    intersection_dime = torch.clamp(upper_bound_intersection - lower_bound_intersection , min=0) 
+
+
+    intersection =  intersection_dime[ : , : , 0] * intersection_dime[: , : , 1] 
+    
+
+
+    

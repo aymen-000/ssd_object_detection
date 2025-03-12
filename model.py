@@ -463,7 +463,19 @@ class SSD300(nn.Module) :
                 n_above_threshold = score_abover_threshold.sum().item()
                 if n_above_threshold == 0 : 
                     continue
-                class_scores = class_scores[score_abover_threshold]
+                class_scores = class_scores[score_abover_threshold] ## get classes with higher score (above threshold)
+                locs = locs[score_abover_threshold]  # get location (nboxes_with_higher_score , 4)
+
+                sorted_class_scores , index =class_scores.sort(dim=0)
+                sorted_locs = locs[index]
+
+                # IOU  part  
+
+                overlap = find_jaccard_overlap(sorted_class_scores) # # (n_qualified, n_qualified)
+                
+
+
+
  
 
 
