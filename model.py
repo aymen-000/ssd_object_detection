@@ -548,7 +548,6 @@ class BoxLoss(nn.Module):
         Returns:
             Loss (scalar)
         """
-
         batch_size = predicted_locs.shape[0]
         n_priors = self.priors.shape[0]
         n_classes = predicted_scores.shape[2]
@@ -557,8 +556,12 @@ class BoxLoss(nn.Module):
 
         true_locs = torch.zeros((batch_size, n_priors, 4), dtype=torch.float).to(device)
         true_classes = torch.zeros((batch_size, n_priors), dtype=torch.long).to(device) 
-
         for i in range(batch_size):
+            if boxes[i].numel() == 0:  # If there are no ground truth boxes
+                true_classes[i] = torch.zeros(n_priors, dtype=torch.long).to(device)  # Set all priors to background class (0)
+                true_locs[i] = torch.zeros(n_priors, 4, dtype=torch.float).to(device)  # Dummy values for localization
+                continue  # Skip the rest of the loop
+
             n_objects = boxes[i].shape[0]
 
             overlap = find_jaccard_overlap(boxes[i], self.priors_xy)
@@ -582,7 +585,7 @@ class BoxLoss(nn.Module):
 
         # Localization loss (only for positive priors)
         locs_loss = self.smoothL1(predicted_locs[positive_priors], true_locs[positive_priors])  
-
+        
         # Confidence loss
         n_positives = positive_priors.sum(dim=1)  # (N)
         n_hard_negatives = self.neg_pos_ratio * n_positives  # (N)

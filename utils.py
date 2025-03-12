@@ -61,46 +61,30 @@ def pred_to_boxes(gcxgcy, priors):
 
 def find_jaccard_overlap(set1, set2):
     """
-    Find IoU (Intersection over Union) of every combination between set1 and set2 (sets of bboxes)
-    
+    Compute IoU (Jaccard index) between two sets of bounding boxes.
+
     Args:
-        set1, set2: tensors of dimension (n, 4) where n is the number of bboxes
-                    Format: each box is [x_min, y_min, x_max, y_max]
-    
-    Output:
-        IoU between every element as a tensor of shape (n1, n2)
+        set1: Tensor of shape (n1, 4) in (x_min, y_min, x_max, y_max) format.
+        set2: Tensor of shape (n2, 4) in (x_min, y_min, x_max, y_max) format.
+
+    Returns:
+        IoU matrix of shape (n1, n2)
     """
-    # Get number of boxes in each set
-    n1, n2 = set1.shape[0], set2.shape[0]
-    
-    # Initialize tensors for intersection bounds
-    lower_bound_intersection = torch.zeros((n1, n2, 2))
-    upper_bound_intersection = torch.zeros((n1, n2, 2))
-    
-    # Find intersection bounds
-    for i in range(n1):
-        for j in range(n2):
-            lower_bound_intersection[i, j] = torch.max(set1[i, :2], set2[j, :2])
-            upper_bound_intersection[i, j] = torch.min(set1[i, 2:], set2[j, 2:])
-    
-    # Calculate intersection areas
-    intersection_dims = torch.clamp(upper_bound_intersection - lower_bound_intersection, min=0)
-    intersection = intersection_dims[:, :, 0] * intersection_dims[:, :, 1]
-    
-    # Find the area of each box in both sets
-    dx_set1 = set1[:, 2] - set1[:, 0]
-    dy_set1 = set1[:, 3] - set1[:, 1]
-    dx_set2 = set2[:, 2] - set2[:, 0]
-    dy_set2 = set2[:, 3] - set2[:, 1]
-    
-    areas_set1 = dx_set1 * dy_set1
-    areas_set2 = dx_set2 * dy_set2
-    
-    # Calculate union areas
-    union = areas_set1.unsqueeze(1) + areas_set2.unsqueeze(0) - intersection
-    
-    # Return IoU
-    return intersection / union
+    # Calculate intersection
+    lower_bounds = torch.max(set1[:, None, :2], set2[:, :2])  # (n1, n2, 2)
+    upper_bounds = torch.min(set1[:, None, 2:], set2[:, 2:])  # (n1, n2, 2)
+    intersection_dims = torch.clamp(upper_bounds - lower_bounds, min=0)  # Avoid negative values
+    intersection_area = intersection_dims[:, :, 0] * intersection_dims[:, :, 1]  # (n1, n2)
+
+    # Compute areas
+    areas_set1 = (set1[:, 2] - set1[:, 0]) * (set1[:, 3] - set1[:, 1])  # (n1)
+    areas_set2 = (set2[:, 2] - set2[:, 0]) * (set2[:, 3] - set2[:, 1])  # (n2)
+
+    # Compute union
+    union_area = areas_set1[:, None] + areas_set2 - intersection_area  # (n1, n2)
+
+    # IoU computation
+    return intersection_area / union_area  # (n1, n2)
 
 
 def non_maximum_suppression(boxes: torch.Tensor, device, iou: torch.Tensor, max_overlap: float):
