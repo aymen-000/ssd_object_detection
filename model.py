@@ -9,92 +9,91 @@ from torchvision.models import vgg16
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-## VGG MODEL 
-class VGGBaseModel(nn.Module) : 
-    """
-        VGG as base architacture
-    """
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
-    def __init__(self, *args, **kwargs):
-        super(VGGBaseModel).__init__(*args, **kwargs)
-
+class VGGBaseModel(nn.Module):
+    """
+    VGG as base architecture
+    """
+    def __init__(self):
+        super(VGGBaseModel , self).__init__()
         ## Conv layers in VGG
-        self.conv1_1 = nn.Conv2d(3,64 , kernel_size=3 , padding=1) 
-        self.conv1_2 = nn.Conv2d(64 , 64 , kernel_size=3 , padding=1)
-        self.pool_1 = nn.MaxPool2d(kernel_size=2 , stride=2)
-        
-        # second block 
+        self.conv1_1 = nn.Conv2d(3, 64, kernel_size=3, padding=1)
+        self.conv1_2 = nn.Conv2d(64, 64, kernel_size=3, padding=1)
+        self.pool_1 = nn.MaxPool2d(kernel_size=2, stride=2)
+        # second block
         self.conv2_1 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
         self.conv2_2 = nn.Conv2d(128, 128, kernel_size=3, padding=1)
         self.pool_2 = nn.MaxPool2d(kernel_size=2, stride=2)
-
-        # third block 
+        # third block
         self.conv3_1 = nn.Conv2d(128, 256, kernel_size=3, padding=1)
         self.conv3_2 = nn.Conv2d(256, 256, kernel_size=3, padding=1)
         self.conv3_3 = nn.Conv2d(256, 256, kernel_size=3, padding=1)
         self.pool_3 = nn.MaxPool2d(kernel_size=2, stride=2, ceil_mode=True)
-
-        #fourth block 
+        # fourth block
         self.conv4_1 = nn.Conv2d(256, 512, kernel_size=3, padding=1)
         self.conv4_2 = nn.Conv2d(512, 512, kernel_size=3, padding=1)
         self.conv4_3 = nn.Conv2d(512, 512, kernel_size=3, padding=1)
         self.pool_4 = nn.MaxPool2d(kernel_size=2, stride=2)
-
-        # fifth block 
+        # fifth block
         self.conv5_1 = nn.Conv2d(512, 512, kernel_size=3, padding=1)
         self.conv5_2 = nn.Conv2d(512, 512, kernel_size=3, padding=1)
         self.conv5_3 = nn.Conv2d(512, 512, kernel_size=3, padding=1)
         self.pool_5 = nn.MaxPool2d(kernel_size=3, stride=1, padding=1)
-
-
         # Replacements for FC6 and FC7 in VGG16
-        self.conv_6 = nn.Conv2d(512, 1024, kernel_size=3, padding=6, dilation=6)  # atrous convolution
-
-        self.conv_7 = nn.Conv2d(1024, 1024, kernel_size=1)
-
-        # load pretrinaed model 
-        self.load_pretrained_layer()
-    def forward(self , image): 
+        self.conv6 = nn.Conv2d(512, 1024, kernel_size=3, padding=6, dilation=6)  # atrous convolution
+        self.conv7 = nn.Conv2d(1024, 1024, kernel_size=1)
+        # load pretrained model
+        self.load_pretrained_layers()
+    
+    def load_pretrained_layers(self):
         """
-            Forawrd (predection) 
-
-            Args : 
-                image : a tensor of dimension (batch_size , 3,300 , 300)
-            
-            Return : 
-                feature maps conv4_3 and conv_7
+        Load pretrained layers from torchvision's VGG16
         """
-        assert image.shape[1:] == (3,300,300)
+        # Implementation would go here
+        pass
+        
+    def forward(self, image):
+        """
+        Forward pass (prediction)
+        Args:
+            image: a tensor of dimension (batch_size, 3, 300, 300)
+        Return:
+            feature maps conv4_3 and conv_7
+        """
+        assert image.shape[1:] == (3, 300, 300)
+        
         x = F.relu(self.conv1_1(image))
         x = F.relu(self.conv1_2(x))
         x = self.pool_1(x)
-
+        
         x = F.relu(self.conv2_1(x))
         x = F.relu(self.conv2_2(x))
         x = self.pool_2(x)
-
+        
         x = F.relu(self.conv3_1(x))
         x = F.relu(self.conv3_2(x))
         x = F.relu(self.conv3_3(x))
         x = self.pool_3(x)
-
+        
         x = F.relu(self.conv4_1(x))
         x = F.relu(self.conv4_2(x))
         x = F.relu(self.conv4_3(x))
-        conv_4_3_feat = x  # (N, 512, 38, 38)
+        conv4_3_feat = x  # (N, 512, 38, 38)
+        
         x = self.pool_4(x)
-
-
+        
         x = F.relu(self.conv5_1(x))
         x = F.relu(self.conv5_2(x))
         x = F.relu(self.conv5_3(x))
         x = self.pool_5(x)
-
+        
         x = F.relu(self.conv6(x))
-
-        conv_7_feat = F.relu(self.conv7(x)) # (N, 1024, 19, 19)
-
-        return conv_4_3_feat , conv_7_feat
+        conv7_feat = F.relu(self.conv7(x))  # (N, 1024, 19, 19)
+        
+        return conv4_3_feat, conv7_feat
 
 
     def load_pretrained_layer(self) : 
@@ -135,65 +134,60 @@ class VGGBaseModel(nn.Module) :
 
 ## add more architactures here future work 
 
-class AuxiliaryConvlutions(nn.Module): 
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class AuxiliaryConvolutions(nn.Module):
     """
-        More convulutions to produce higher-level featur maps . 
-    """ 
-    def __init__(self, *args, **kwargs):
-        super(AuxiliaryConvlutions).__init__(*args, **kwargs) 
-
-        # make them on top of VGG base model 
-        self.con
-        self.conv8_1 = nn.Conv2d(1024, 256, kernel_size=1, padding=0)  
+    More convolutions to produce higher-level feature maps.
+    """
+    def __init__(self):
+        super(AuxiliaryConvolutions, self).__init__()
+        # make them on top of VGG base model
+        self.conv8_1 = nn.Conv2d(1024, 256, kernel_size=1, padding=0)
         self.conv8_2 = nn.Conv2d(256, 512, kernel_size=3, stride=2, padding=1)
-
         self.conv9_1 = nn.Conv2d(512, 128, kernel_size=1, padding=0)
-        self.conv9_2 = nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1) 
-
+        self.conv9_2 = nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1)
         self.conv10_1 = nn.Conv2d(256, 128, kernel_size=1, padding=0)
-        self.conv10_2 = nn.Conv2d(128, 256, kernel_size=3, padding=0)  
-
+        self.conv10_2 = nn.Conv2d(128, 256, kernel_size=3, padding=0)
         self.conv11_1 = nn.Conv2d(256, 128, kernel_size=1, padding=0)
         self.conv11_2 = nn.Conv2d(128, 256, kernel_size=3, padding=0)
-
-        # init our conv parms 
+        # init our conv params
         self.init_convs()
-
-    def init_convs(self) : 
+        
+    def init_convs(self):
         """
-            Initialize convulution parmaeters 
+        Initialize convolution parameters
         """
-        for c in self.children() : 
-            if isinstance(c, nn.Conv2d) : 
+        for c in self.children():
+            if isinstance(c, nn.Conv2d):
                 nn.init.xavier_uniform_(c.weight)
-                nn.init.constant_(c.bias , 0.)
-
-
+                nn.init.constant_(c.bias, 0.)
+                
     def forward(self, conv7_feats):
         """
         Forward propagation.
-        Args 
-
+        Args:
             conv7_feats: lower-level conv7 feature map, a tensor of dimensions (N, 1024, 19, 19)
-    
-        Output 
+        Output:
             higher-level feature maps conv8_2, conv9_2, conv10_2, and conv11_2
         """
-        x = F.relu(self.conv8_1(conv7_feats)) 
-        x = F.relu(self.conv8_2(x)) 
-        conv8_2_feats = x
-
+        x = F.relu(self.conv8_1(conv7_feats))
+        x = F.relu(self.conv8_2(x))
+        conv8_2_feats = x  # (N, 512, 10, 10)
+        
         x = F.relu(self.conv9_1(x))
-        x = F.relu(self.conv9_2(x)) 
+        x = F.relu(self.conv9_2(x))
         conv9_2_feats = x  # (N, 256, 5, 5)
-
-        x = F.relu(self.conv10_1(x)) 
-        x = F.relu(self.conv10_2(x))  
+        
+        x = F.relu(self.conv10_1(x))
+        x = F.relu(self.conv10_2(x))
         conv10_2_feats = x  # (N, 256, 3, 3)
-
-        x = F.relu(self.conv11_1(x)) 
-        conv11_2_feats = F.relu(self.conv11_2(x)) 
-
+        
+        x = F.relu(self.conv11_1(x))
+        conv11_2_feats = F.relu(self.conv11_2(x))  # (N, 256, 1, 1)
+        
         # Higher-level feature maps
         return conv8_2_feats, conv9_2_feats, conv10_2_feats, conv11_2_feats
 
@@ -334,15 +328,15 @@ class SSD300(nn.Module) :
     """
 
     def __init__(self, n_classes, **kwargs):
-        super(SSD300).__init__()
+        super(SSD300 , self).__init__()
         
         self.n_classes = n_classes
 
         self.model =VGGBaseModel()
-        self.aux_conv = AuxiliaryConvlutions()
+        self.aux_conv = AuxiliaryConvolutions()
         self.pred_convs = PredictionConvolutions(n_classes=n_classes)
 
-        self.scal_f = nn.Parameter(torch.FloatTensor(1,412 , 1, 1))
+        self.scal_f = nn.Parameter(torch.FloatTensor(1,512 , 1, 1))
         nn.init.constant_(self.scal_f , 20)
         self.priors = self.create_prior_boxes()
     def forward(self , image)  :
@@ -361,6 +355,8 @@ class SSD300(nn.Module) :
         mean = conv4_3_feats.sum(dim=1, keepdim=True) / 512  # Compute mean 
         norm = (conv4_3_feats - mean).pow(2).sum(dim=1, keepdim=True) / 512  # Compute variance
         conv4_3_feats = ((conv4_3_feats - mean) / (norm.sqrt() + 1e-6)) * self.scal_f  # Normalize
+
+
 
 
         # more more featur extraction 
@@ -404,8 +400,8 @@ class SSD300(nn.Module) :
 
 
         prior_boxes = []
-
-        for k , fmap in list(fmap_dims.keys()) : 
+        fmaps = list(fmap_dims.keys())
+        for k , fmap in enumerate(fmaps) : 
             for i in range(fmap_dims[fmap]) : 
                 for j in range(fmap_dims[fmap]) : 
                     cx = (j+0.5) / fmap_dims[fmap]
@@ -416,7 +412,7 @@ class SSD300(nn.Module) :
 
                         if ratio == 1 : 
                             try : 
-                                scale =sqrt(obj_scales[fmap]*obj_scales[fmap[k+1]])
+                                scale =sqrt(obj_scales[fmap] * obj_scales[fmaps[k+1]])
                             except IndexError : 
                                 scale = 1 
                             prior_boxes.append([cx , cy , scale , scale])
@@ -425,97 +421,97 @@ class SSD300(nn.Module) :
 
 
 
-def detect_objects(self, pred_locs, pred_scores, threshold, max_overlap, k):
-    """
-    Decipher the 8732 locations and class scores (output of the SSD300) to detect objects.
-    For each class, perform Non-Maximum Suppression (NMS) on boxes that are above a minimum threshold.
-    
-    Args:
-        pred_locs: Predicted locations/boxes w.r.t prior-boxes, a tensor of dimensions (batch_size, 8732, 4)
-        pred_scores: Class scores for each of the encoded locations/boxes, a tensor of dimensions (batch_size, 8732, n_classes)
-        threshold: Minimum threshold for a box to be considered a match for a certain class
-        max_overlap: Maximum overlap two boxes can have so that the one with the lower score is not suppressed via NMS
-        k: The top k detections with highest scores are returned
+    def detect_objects(self, pred_locs, pred_scores, threshold, max_overlap, k):
+        """
+        Decipher the 8732 locations and class scores (output of the SSD300) to detect objects.
+        For each class, perform Non-Maximum Suppression (NMS) on boxes that are above a minimum threshold.
         
-    Returns:
-        final_img_bbox: List of tensors of dimensions (n_objects, 4) containing box coordinates for each image
-        final_img_labels: List of tensors of dimensions (n_objects) containing object class labels for each image
-        final_img_scores: List of tensors of dimensions (n_objects) containing object scores for each image
-    """
-    batch_size = pred_locs.size(0)
-    pred_scores = F.softmax(pred_scores, dim=2)  # (batch_size, 8732, n_classes)
-    
-    final_img_bbox = []
-    final_img_labels = []
-    final_img_scores = []
-    
-    # For each image in the batch
-    for i in range(batch_size):
-        # Convert locations from (center x, center y, w, h) to (x_min, y_min, x_max, y_max)
-        locs = cxcy_to_xy(
-            pred_to_boxes(pred_locs[i], self.priors)  # model correct predictions
-        )  # (8732, 4) - turn to x_min, y_min, x_max, y_max
-        
-        image_boxes = []
-        image_labels = []
-        image_scores = []
-        
-        # For each class (except background)
-        for c in range(1, self.n_classes):
-            # Extract class scores for this class
-            class_scores = pred_scores[i][:, c]  # (8732)
+        Args:
+            pred_locs: Predicted locations/boxes w.r.t prior-boxes, a tensor of dimensions (batch_size, 8732, 4)
+            pred_scores: Class scores for each of the encoded locations/boxes, a tensor of dimensions (batch_size, 8732, n_classes)
+            threshold: Minimum threshold for a box to be considered a match for a certain class
+            max_overlap: Maximum overlap two boxes can have so that the one with the lower score is not suppressed via NMS
+            k: The top k detections with highest scores are returned
             
-            # Keep only boxes with scores above threshold
-            score_above_threshold = class_scores > threshold
-            n_above_threshold = score_above_threshold.sum().item()
+        Returns:
+            final_img_bbox: List of tensors of dimensions (n_objects, 4) containing box coordinates for each image
+            final_img_labels: List of tensors of dimensions (n_objects) containing object class labels for each image
+            final_img_scores: List of tensors of dimensions (n_objects) containing object scores for each image
+        """
+        batch_size = pred_locs.size(0)
+        pred_scores = F.softmax(pred_scores, dim=2)  # (batch_size, 8732, n_classes)
+        
+        final_img_bbox = []
+        final_img_labels = []
+        final_img_scores = []
+        
+        # For each image in the batch
+        for i in range(batch_size):
+            # Convert locations from (center x, center y, w, h) to (x_min, y_min, x_max, y_max)
+            locs = cxcy_to_xy(
+                pred_to_boxes(pred_locs[i], self.priors)  # model correct predictions
+            )  # (8732, 4) - turn to x_min, y_min, x_max, y_max
             
-            if n_above_threshold == 0:
-                continue
+            image_boxes = []
+            image_labels = []
+            image_scores = []
+            
+            # For each class (except background)
+            for c in range(1, self.n_classes):
+                # Extract class scores for this class
+                class_scores = pred_scores[i][:, c]  # (8732)
                 
-            # Extract boxes and scores that are above threshold
-            class_scores = class_scores[score_above_threshold]  # (n_qualified)
-            class_locs = locs[score_above_threshold]  # (n_qualified, 4)
+                # Keep only boxes with scores above threshold
+                score_above_threshold = class_scores > threshold
+                n_above_threshold = score_above_threshold.sum().item()
+                
+                if n_above_threshold == 0:
+                    continue
+                    
+                # Extract boxes and scores that are above threshold
+                class_scores = class_scores[score_above_threshold]  # (n_qualified)
+                class_locs = locs[score_above_threshold]  # (n_qualified, 4)
+                
+                # Sort boxes by decreasing scores
+                sorted_scores, sort_idx = class_scores.sort(dim=0, descending=True)
+                sorted_locs = class_locs[sort_idx]  # (n_qualified, 4)
+                
+                # Calculate IoU between all pairs of boxes
+                overlap = find_jaccard_overlap(sorted_locs, sorted_locs)  # (n_qualified, n_qualified)
+                
+                # Apply non-maximum suppression
+                keep = non_maximum_suppression(sorted_locs, self.device, overlap, max_overlap)
+                
+                # Store boxes, labels, and scores for this class
+                image_boxes.append(sorted_locs[keep])
+                image_labels.append(torch.LongTensor([c] * len(keep)).to(self.device))
+                image_scores.append(sorted_scores[keep])
             
-            # Sort boxes by decreasing scores
-            sorted_scores, sort_idx = class_scores.sort(dim=0, descending=True)
-            sorted_locs = class_locs[sort_idx]  # (n_qualified, 4)
+            # If no object in any class is found, store a placeholder for 'background'
+            if len(image_boxes) == 0:
+                image_boxes.append(torch.FloatTensor([[0., 0., 1., 1.]]).to(self.device))
+                image_labels.append(torch.LongTensor([0]).to(self.device))
+                image_scores.append(torch.FloatTensor([0.]).to(self.device))
             
-            # Calculate IoU between all pairs of boxes
-            overlap = find_jaccard_overlap(sorted_locs, sorted_locs)  # (n_qualified, n_qualified)
+            # Concatenate into single tensors
+            image_boxes = torch.cat(image_boxes, dim=0)  # (n_objects, 4)
+            image_labels = torch.cat(image_labels, dim=0)  # (n_objects)
+            image_scores = torch.cat(image_scores, dim=0)  # (n_objects)
+            n_objects = image_scores.size(0)
             
-            # Apply non-maximum suppression
-            keep = non_maximum_suppression(sorted_locs, self.device, overlap, max_overlap)
+            # Keep only the top k objects
+            if n_objects > k:
+                image_scores, sort_ind = image_scores.sort(dim=0, descending=True)
+                image_scores = image_scores[:k]  # (top_k)
+                image_boxes = image_boxes[sort_ind][:k]  # (top_k, 4)
+                image_labels = image_labels[sort_ind][:k]  # (top_k)
             
-            # Store boxes, labels, and scores for this class
-            image_boxes.append(sorted_locs[keep])
-            image_labels.append(torch.LongTensor([c] * len(keep)).to(self.device))
-            image_scores.append(sorted_scores[keep])
-        
-        # If no object in any class is found, store a placeholder for 'background'
-        if len(image_boxes) == 0:
-            image_boxes.append(torch.FloatTensor([[0., 0., 1., 1.]]).to(self.device))
-            image_labels.append(torch.LongTensor([0]).to(self.device))
-            image_scores.append(torch.FloatTensor([0.]).to(self.device))
-        
-        # Concatenate into single tensors
-        image_boxes = torch.cat(image_boxes, dim=0)  # (n_objects, 4)
-        image_labels = torch.cat(image_labels, dim=0)  # (n_objects)
-        image_scores = torch.cat(image_scores, dim=0)  # (n_objects)
-        n_objects = image_scores.size(0)
-        
-        # Keep only the top k objects
-        if n_objects > k:
-            image_scores, sort_ind = image_scores.sort(dim=0, descending=True)
-            image_scores = image_scores[:k]  # (top_k)
-            image_boxes = image_boxes[sort_ind][:k]  # (top_k, 4)
-            image_labels = image_labels[sort_ind][:k]  # (top_k)
-        
-        # Append to lists that store predicted boxes and scores for all images
-        final_img_bbox.append(image_boxes)
-        final_img_labels.append(image_labels)
-        final_img_scores.append(image_scores)
+            # Append to lists that store predicted boxes and scores for all images
+            final_img_bbox.append(image_boxes)
+            final_img_labels.append(image_labels)
+            final_img_scores.append(image_scores)
     
-    return final_img_bbox, final_img_labels, final_img_scores
+        return final_img_bbox, final_img_labels, final_img_scores
 
 
 

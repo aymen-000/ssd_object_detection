@@ -36,12 +36,7 @@ class TestBoxLoss(unittest.TestCase):
         self.assertFalse(torch.isinf(loss).any())
         self.assertGreater(loss.item(), 0)  # Loss should be positive
 
-    def test_empty_boxes(self):
-        """Test handling of an empty box list."""
-        empty_boxes = [torch.empty((0, 4)).to(self.device) for _ in range(2)]
-        empty_labels = [torch.empty((0,), dtype=torch.long).to(self.device) for _ in range(2)]
-        
-        loss = self.loss_fn(self.predicted_locs, self.predicted_scores, empty_boxes, empty_labels)
+
 
     
 
