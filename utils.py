@@ -113,3 +113,18 @@ def non_maximum_suppression(boxes: torch.Tensor, device, iou: torch.Tensor, max_
     # Return indices of boxes that were not suppressed
     keep = torch.where(~suppress)[0]
     return keep
+
+
+def decay_lr(optimier , decay_lr) : 
+    pass
+
+
+def save_checkpoints(checkpoints) : 
+    pass
+
+
+def AverageMeter() : 
+    pass 
+
+def clip_gradient(optimizer , grad_clip ) : 
+    pass
