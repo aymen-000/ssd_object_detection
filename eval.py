@@ -34,12 +34,12 @@ def eval(test_data, model: SSD300):
         test_data: test dataLoader
         model: model to do inference
     """
-    det_boxes = []
-    det_labels = []
-    det_scores = []
-    true_boxes = []
-    true_labels = []
-    true_difficulties = []
+    det_boxes = list()
+    det_labels = list()
+    det_scores =list()
+    true_boxes =  list()
+    true_labels = list()
+    true_difficulties = list()
     
     with torch.no_grad():
         for batch, (images, labels, boxes, difficulties) in enumerate(tqdm(test_data)):
@@ -57,12 +57,12 @@ def eval(test_data, model: SSD300):
             labels = [l.to(DEVICE) for l in labels]
             difficulties = [d.to(DEVICE) for d in difficulties]
             
-            det_boxes.append(det_boxes_batch)
-            det_labels.append(det_labels_batch)
-            det_scores.append(det_scores_batch)
-            true_boxes.append(boxes)
-            true_labels.append(labels)
-            true_difficulties.append(difficulties)
+            det_boxes.extend(det_boxes_batch)
+            det_labels.extend(det_labels_batch)
+            det_scores.extend(det_scores_batch)
+            true_boxes.extend(boxes)
+            true_labels.extend(labels)
+            true_difficulties.extend(difficulties)
     
     # calculate mAP (mean average precision)
     APs, mAP = calc_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels, true_difficulties)

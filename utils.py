@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 import os
+from configuration import *
 def decimate(tensor , m) : 
     """
         Decimate tensor by factor m 
@@ -225,5 +226,151 @@ def load_model_pretrained_params(model, weight_file, optimizer=None, device='cud
     return start_epoch, model, optimizer
 
 
-def calc_mAP(det_boxes , det_labels , det_scores , true_boxes , true_labels , true_diificulties)  : 
-    pass 
+def calc_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels, true_difficulties, label_map, rev_label_map):
+    """
+    Calculate the Mean Average Precision (mAP) of detected objects 
+
+    Args:
+        det_boxes: List of tensors, detected bounding boxes for each image
+        det_labels: List of tensors, detected labels for each image
+        det_scores: List of tensors, confidence scores for each detection
+        true_boxes: List of tensors, ground truth bounding boxes for each image
+        true_labels: List of tensors, ground truth labels for each image
+        true_difficulties: List of tensors, difficulty flags for each ground truth object
+        label_map: Dictionary mapping label names to indices
+        rev_label_map: Dictionary mapping indices to label names
+
+    Returns:
+        average_precisions: Dictionary of AP for all classes
+        mean_average_precision: mAP value
+    """
+    assert len(det_boxes) == len(det_labels) == len(det_scores) == len(true_boxes) == len(true_labels) == len(true_difficulties)
+    n_classes = len(label_map)
+
+    # Prepare data
+    images_index = []
+    for i in range(len(true_boxes)):
+        images_index.extend([i] * true_labels[i].size(0))
+        # Number of real objects in each image
+    
+    det_images = []
+    for i in range(len(det_labels)):
+        det_images.extend([i] * det_labels[i].size(0))
+        # Number of detected objects in each image
+    
+    # Convert to tensors
+    images_index = torch.LongTensor(images_index).to(DEVICE)
+    det_images = torch.LongTensor(det_images).to(DEVICE)
+    
+    # Concatenate all tensors
+    det_boxes = torch.cat(det_boxes, dim=0)
+    det_labels = torch.cat(det_labels, dim=0)
+    det_scores = torch.cat(det_scores, dim=0)
+    true_boxes = torch.cat(true_boxes, dim=0)
+    true_labels = torch.cat(true_labels, dim=0)
+    true_difficulties = torch.cat(true_difficulties, dim=0)
+
+    # Initialize AP tensor
+    AP = torch.zeros(n_classes - 1, dtype=torch.float).to(DEVICE)
+    
+    # Calculate AP for each class
+    for c in range(1, n_classes):
+        # Extract objects with class c
+        class_images = images_index[true_labels == c]
+        class_boxes = true_boxes[true_labels == c]
+        class_difficulties = true_difficulties[true_labels == c]
+        
+        # Count number of easy (non-difficult) objects
+        easy_class_obj = (1 - class_difficulties).sum().item()
+        
+        # Extract detections with class c
+        det_class_images = det_images[det_labels == c]
+        det_class_boxes = det_boxes[det_labels == c]
+        det_class_scores = det_scores[det_labels == c]
+        n_class_detections = det_class_boxes.size(0)
+        
+        # Initialize array to keep track of detected boxes
+        class_boxes_detected = torch.zeros(class_boxes.size(0)).to(DEVICE)
+        
+        if n_class_detections == 0:
+            continue
+        
+        # Sort detections by confidence score
+        det_class_scores, sort_ind = torch.sort(det_class_scores, dim=0, descending=True)
+        det_class_images = det_class_images[sort_ind]
+        det_class_boxes = det_class_boxes[sort_ind]
+        
+        # Initialize true positives and false positives tensors
+        TP = torch.zeros(n_class_detections, dtype=torch.float).to(DEVICE)
+        FP = torch.zeros(n_class_detections, dtype=torch.float).to(DEVICE)
+        
+        # Check each detection
+        for d in range(n_class_detections):
+            this_box_detection = det_class_boxes[d].unsqueeze(0)  # (1, 4)
+            this_image = det_class_images[d]
+            
+            # Find ground truth boxes for this image
+            t_object_boxes = class_boxes[class_images == this_image]
+            t_object_diff = class_difficulties[class_images == this_image]
+            
+            if t_object_boxes.size(0) == 0:
+                # No ground truth boxes in this image
+                FP[d] = 1
+                continue
+            
+            # Calculate IoU with ground truth boxes
+            overlaps = find_jaccard_overlap(this_box_detection, t_object_boxes)
+            max_overlap, ind = torch.max(overlaps.squeeze(0), dim=0)
+            
+            # Get original index
+            original_ind = torch.LongTensor(range(class_boxes.size(0))).to(DEVICE)[class_images == this_image][ind]
+            
+            # Determine if detection is TP or FP
+            if max_overlap.item() > 0.5:
+                if t_object_diff[ind] == 0:  # Not difficult
+                    if class_boxes_detected[original_ind] == 0:
+                        TP[d] = 1
+                        class_boxes_detected[original_ind] = 1
+                    else:
+                        FP[d] = 1
+                # If object is difficult, ignore it
+            else:
+                FP[d] = 1
+        
+        # Calculate cumulative TP and FP
+        cumul_TP = torch.cumsum(TP, dim=0)
+        cumul_FP = torch.cumsum(FP, dim=0)
+        
+        # Calculate precision and recall
+        cumul_precision = cumul_TP / (cumul_TP + cumul_FP + 1e-10)
+        cumul_recall = cumul_TP / (easy_class_obj + 1e-10)
+        
+        # Calculate average precision
+        recall_thresholds = torch.arange(start=0, end=1.1, step=0.1).to(DEVICE)
+        precisions = torch.zeros(len(recall_thresholds), dtype=torch.float).to(DEVICE)
+        
+        for i, t in enumerate(recall_thresholds):
+            recalls_above_t = cumul_recall >= t
+            if recalls_above_t.any():
+                precisions[i] = cumul_precision[recalls_above_t].max()
+            else:
+                precisions[i] = 0.
+        
+        # Store AP for this class
+        AP[c - 1] = precisions.mean()
+    
+    # Calculate mAP
+    mean_average_precision = AP.mean().item()
+    
+    # Create dictionary of class AP values
+    average_precisions = {rev_label_map[c + 1]: v.item() for c, v in enumerate(AP)}
+    
+    return average_precisions, mean_average_precision
+
+
+
+
+
+
+
+
