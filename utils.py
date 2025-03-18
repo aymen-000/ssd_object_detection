@@ -115,16 +115,63 @@ def non_maximum_suppression(boxes: torch.Tensor, device, iou: torch.Tensor, max_
     return keep
 
 
-def decay_lr(optimier , decay_lr) : 
-    pass
+def decay_lr(optimizer: torch.optim.Optimizer, decay_factor):
+    """
+    Scale learning rate by a specific factor.
+    Args:
+        optimizer: optimizer whose lr will be decayed
+        decay_factor: scale factor for learning rate
+    Return: None
+    """
+    for param_group in optimizer.param_groups:
+        param_group["lr"] = param_group["lr"] * decay_factor
+    
+    print(f"DECAY LEARNING RATE.\nTHE NEW LR IS: {optimizer.param_groups[0]['lr']}")
 
 
-def save_checkpoints(checkpoints) : 
-    pass
+def save_checkpoints(epoch, model, optimizer):
+    """
+    Save model checkpoints.
+    Args:
+        epoch: epoch number
+        model: model used
+        optimizer: optimizer used
+    Return: None
+    """
+    s = {
+        "epochs": epoch,
+        "model": model,
+        "optimizer": optimizer
+    }
+    filename = 'checkpoint_ssd300.pth.tar'
+    torch.save(s, filename)
+
+class AverageMeter(object) : 
+    def __init__(self):
+        self.reset() 
+    
+    def reset(self) : 
+        self.val = 0 
+        self.avg = 0 
+        self.sum  =0 
+        self.count = 0 
+    
+    def update(self , val , n=1) : 
+        self.val = val 
+        self.sum += val*n
+        self.count += n 
+        self.avg = self.sum / self.count
 
 
-def AverageMeter() : 
-    pass 
+def clip_gradient(optimizer:torch.optim.Optimizer , grad_clip ) : 
+    """
+        Clip  gradients computed during training to avoid explosion 
 
-def clip_gradient(optimizer , grad_clip ) : 
-    pass
+        Args : 
+            optimizer : optim we used 
+            grad_clip : clip value
+    """
+    for group in optimizer.param_groups : 
+        for param in group['params'] : 
+            if param.grad is not None : 
+                param.grad.data.clam_(-grad_clip , grad_clip)

@@ -74,7 +74,7 @@ def main() :
 
         # Save checkpoint
         checkpoints = {}  # i should build it 
-        save_checkpoints(checkpoints)
+        save_checkpoints(model=model , optimizer=optimizer , epoch=epoch)
 
 
 def train(train_loader , model , criterion, optimizer , epoch) : 
@@ -116,7 +116,7 @@ def train(train_loader , model , criterion, optimizer , epoch) :
         start = time.time()
 
         # Print status
-        if i % PRINT_FRAQ == 0:
+        if batch % PRINT_FRAQ == 0:
             print('Epoch: [{0}][{1}/{2}]\t'
                   'Batch Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   'Data Time {data_time.val:.3f} ({data_time.avg:.3f})\t'
