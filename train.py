@@ -33,11 +33,12 @@ def main() :
                                     lr=LR, momentum=MOUMENTUM, weight_decay=WEIGHT_DACAY)
         
     else : 
-        checkpoint = torch.load(checkpoint)
-        start_epoch = checkpoint['epoch'] + 1
-        print('\nLoaded checkpoint from epoch %d.\n' % start_epoch)
-        model = checkpoint['model']
-        optimizer = checkpoint['optimizer']
+        start_epoch, model, optimizer = load_model_pretrained_params(
+            model=SSD300(n_classes=N_CLASSES),
+            weight_file=CHECKPOINTS,
+            optimizer=None,  # Create new optimizer or pass initial optimizer
+            device=device
+        )
     # Move to default device
     model = model.to(device)
     # CALCULATE LOSS
@@ -73,7 +74,6 @@ def main() :
               epoch=epoch)
 
         # Save checkpoint
-        checkpoints = {}  # i should build it 
         save_checkpoints(model=model , optimizer=optimizer , epoch=epoch)
 
 

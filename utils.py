@@ -1,7 +1,7 @@
 import torch.nn as nn 
 import torch.nn.functional as F
 import torch
-
+import os
 def decimate(tensor , m) : 
     """
         Decimate tensor by factor m 
@@ -175,3 +175,55 @@ def clip_gradient(optimizer:torch.optim.Optimizer , grad_clip ) :
         for param in group['params'] : 
             if param.grad is not None : 
                 param.grad.data.clam_(-grad_clip , grad_clip)
+
+
+def load_model_pretrained_params(model, weight_file, optimizer=None, device='cuda'):
+    """
+    Load pretrained weights into a model.
+    
+    Args:
+        model: The model to load weights into
+        weight_file: Path to the checkpoint file containing weights
+        optimizer: Optional optimizer to restore state
+        device: Device to load the model on ('cuda' or 'cpu')
+        
+    Return:
+        start_epoch: Epoch to resume from (0 if not resuming training)
+        model: The model with loaded weights
+        optimizer: The optimizer with loaded state (if provided)
+    """
+    if not os.path.isfile(weight_file):
+        print(f"No checkpoint found at '{weight_file}'")
+        return 0, model, optimizer
+        
+    print(f"Loading checkpoint from '{weight_file}'")
+    checkpoint = torch.load(weight_file, map_location=device)
+    
+    # Handle checkpoint format from the provided code
+    if isinstance(checkpoint, dict):
+        if 'model' in checkpoint:
+            model = checkpoint['model']
+        else:
+            model.load_state_dict(checkpoint['model_state_dict'])
+            
+        start_epoch = 0
+        if 'epoch' in checkpoint:
+            start_epoch = checkpoint['epoch'] + 1
+            print(f"\nLoaded checkpoint from epoch {start_epoch - 1}.\n")
+            
+        if optimizer is not None and 'optimizer' in checkpoint:
+            optimizer = checkpoint['optimizer']
+    else:
+        # If checkpoint is just weights
+        model.load_state_dict(checkpoint)
+        start_epoch = 0
+        print("Loaded pretrained weights successfully")
+    
+    # Move to specified device
+    model = model.to(device)
+        
+    return start_epoch, model, optimizer
+
+
+def calc_mAP(det_boxes , det_labels , det_scores , true_boxes , true_labels , true_diificulties)  : 
+    pass 
