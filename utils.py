@@ -3,6 +3,8 @@ import torch.nn.functional as F
 import torch
 import os
 from configuration import *
+import torchvision.transforms.functional as FT
+import random
 def decimate(tensor , m) : 
     """
         Decimate tensor by factor m 
@@ -368,9 +370,54 @@ def calc_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels, true_di
     return average_precisions, mean_average_precision
 
 
+def transform(image, boxes , labels , diffic , split:str) :
+    """
+    Apply the trnasfomration above 
+
+    Args : 
+        image : a PIL image 
+        boxes : a set of bbox 
+        labels :   list of integrs 
+        diffic : don't care 
+        split  : Train or Test 
+
+    Return : 
+        transformed image , transformed bboxe , transformed labels, transformed diffic 
+    """
+
+
+    mean = [0.485, 0.456, 0.406]
+    std = [0.229, 0.224, 0.225]
+
+    new_image = image  
+    new_boxes = boxes 
+    new_labels = labels
+
+    if split.upper() == "TRAIN": 
+        pass
+
+
+
+def photometric_distort(image) : 
+    """
+        Distort brightness , contrast , saturation ...Etc
+    """
+    new_image = image 
+
+    distorations= [FT.adjust_brightness , 
+                   FT.adjust_contrast]
+    random.shuffle(distorations)
+
+    for d in distorations : 
+        if random.random() < 0.5 : 
+            adjust_factor = random.uniform(0.5 , 1.5)
+
+        new_image = d(new_image , adjust_factor)
+
+    return new_image
 
 
 
 
 
-
+ 
