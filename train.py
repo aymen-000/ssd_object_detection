@@ -143,7 +143,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
     losses = AverageMeter()  # loss
 
     start = time.time()
-    for batch_idx, (images, boxes, labels, _) in enumerate(train_loader): 
+    for batch_idx, (images, boxes, labels) in enumerate(train_loader): 
         data_time.update(time.time() - start)
 
         # Move to default device
