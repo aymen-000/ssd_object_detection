@@ -89,8 +89,8 @@ def main():
         optimizer = SGD(params=[{'params': biases, 'lr': 2 * LR * 0.1}, {'params': weights}],
                         lr=LR * 0.1, momentum=MOMENTUM, weight_decay=WEIGHT_DECAY)
         
-        # Calculate loss
-        criterion = BoxLoss(priors_cxcy=model.priors_cxcy).to(DEVICE)
+        # Calculate loss 
+        criterion = BoxLoss(priors_cxcy=model.priors).to(DEVICE)
         
         # Working with data
         data = AminiCocoaDataset(data_folder=args.data_folder, labels_folder=args.labels_folder)
@@ -181,6 +181,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\t'.format(epoch, batch_idx, len(train_loader),
                                                                   batch_time=batch_time,
                                                                   data_time=data_time, loss=losses))
+    torch.save(model , "SSD300_finetuned.pth")
     del predicted_locs, predicted_scores, images, boxes, labels  # free some memory since their histories may be stored
 
 
