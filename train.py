@@ -90,7 +90,7 @@ def main():
                         lr=LR * 0.1, momentum=MOMENTUM, weight_decay=WEIGHT_DECAY)
         
         # Calculate loss 
-        criterion = BoxLoss(priors_cxcy=model.priors).to(DEVICE)
+        criterion = BoxLoss(priors=model.priors).to(DEVICE)
         
         # Working with data
         data = AminiCocoaDataset(data_folder=args.data_folder, labels_folder=args.labels_folder)
