@@ -21,73 +21,125 @@ def parse_args():
     parser.add_argument('--data_folder', required=True, help='Path to the data folder')
     parser.add_argument('--labels_folder', required=True, help='Path to the labels folder')
     
+    # Pretrained weights parameters
+    parser.add_argument('--pretrained_weights', required=True, help='Path to pretrained SSD300 weights')
+    parser.add_argument('--fine_tune', action='store_true', help='Fine-tune the model if specified')
+    
     return parser.parse_args()
+
+def load_pretrained_ssd(model, weights_path):
+    """
+    Load pretrained SSD300 weights
+    
+    Args:
+        model: SSD300 model instance
+        weights_path: Path to pretrained weights file
+        
+    Returns:
+        model: Model with loaded weights
+    """
+    print(f"Loading pretrained weights from {weights_path}")
+    
+    # Load the weights
+    checkpoint = torch.load(weights_path, map_location=DEVICE)
+    
+    # Check if it's a state_dict or a full checkpoint
+    if 'state_dict' in checkpoint:
+        state_dict = checkpoint['state_dict']
+    elif 'model' in checkpoint and isinstance(checkpoint['model'], dict):
+        state_dict = checkpoint['model']
+    else:
+        state_dict = checkpoint
+    
+    # Filter out any keys that don't match the model (in case of different num_classes)
+    model_keys = set(model.state_dict().keys())
+    pretrained_keys = set(state_dict.keys())
+    
+    # Load matching keys
+    matching_weights = {k: v for k, v in state_dict.items() if k in model_keys}
+    
+    # Report on loading status
+    print(f"Loaded {len(matching_weights)}/{len(model_keys)} layers from pretrained weights")
+    
+    # Load weights into model
+    model.load_state_dict(matching_weights, strict=False)
+    
+    return model
 
 def main():
     """
-    Training the model 
+    Training or evaluating the model with pretrained weights
     """
     # Parse arguments
     args = parse_args()
     
-    if CHECKPOINTS is None: 
-        start_epoch = 0 
-        model = SSD300(n_classes=N_CLASSES)
+    # Initialize model
+    model = SSD300(n_classes=N_CLASSES)
+    
+    # Load pretrained weights
+    model = load_pretrained_ssd(model, args.pretrained_weights)
+    
+    # Move to device
+    model = model.to(DEVICE)
+    
+    # If fine-tuning, set up optimizer
+    if args.fine_tune:
+        # Prepare optimizer
         biases = []
         weights = []
         for param_name, param in model.named_parameters():
-            if param_name.endswith(".bias"): 
+            if param_name.endswith(".bias"):
                 biases.append(param)
-            else: 
+            else:
                 weights.append(param)
-            
-        optimizer = SGD(params=[{'params': biases, 'lr': 2 * LR}, {'params': weights}],
-                        lr=LR, momentum=MOMENTUM, weight_decay=WEIGHT_DECAY)
+                
+        optimizer = SGD(params=[{'params': biases, 'lr': 2 * LR * 0.1}, {'params': weights}],
+                        lr=LR * 0.1, momentum=MOMENTUM, weight_decay=WEIGHT_DECAY)
         
-    else: 
-        start_epoch, model, optimizer = load_model_pretrained_params(
-            model=SSD300(n_classes=N_CLASSES),
-            weight_file=CHECKPOINTS,
-            optimizer=None,  # Create new optimizer or pass initial optimizer
-            device=DEVICE
+        # Calculate loss
+        criterion = BoxLoss(priors_cxcy=model.priors_cxcy).to(DEVICE)
+        
+        # Working with data
+        data = AminiCocoaDataset(data_folder=args.data_folder, labels_folder=args.labels_folder)
+
+        train_data_loader = DataLoader(
+            data, 
+            batch_size=BATCH_SIZE, 
+            shuffle=True, 
+            num_workers=WORKERS, 
+            collate_fn=data.collate_fn, 
+            pin_memory=True 
         )
+
+        # For fine-tuning, use fewer iterations
+        fine_tune_iters = ITERS // 10
+        epochs = fine_tune_iters // (len(train_data_loader) // BATCH_SIZE)
+        decay_lr_at = [it // (len(train_data_loader) // BATCH_SIZE) for it in [fine_tune_iters//2, fine_tune_iters*3//4]]
+
+        # Fine-tuning loop 
+        print(f"Fine-tuning for {epochs} epochs")
+        for epoch in range(epochs): 
+            if epoch in decay_lr_at: 
+                # decay learning rate 
+                decay_lr(optimizer, DECAY_LR_COEFF)
+
+            # One epoch's training
+            train(train_loader=train_data_loader,
+                model=model,
+                criterion=criterion,
+                optimizer=optimizer,
+                epoch=epoch)
+
+            # Save checkpoint
+            save_checkpoints(model=model, optimizer=optimizer, epoch=epoch, filename=f'fine_tuned_ssd300_epoch_{epoch}.pth')
     
-    # Move to default device
-    model = model.to(DEVICE)
-    
-    # CALCULATE LOSS
-    criterion = BoxLoss(priors_cxcy=model.priors_cxcy).to(DEVICE)
-    
-    # WORKING WITH DATA
-    data = AminiCocoaDataset(data_folder=args.data_folder, labels_folder=args.labels_folder)
-
-    train_data_loader = DataLoader(
-        data, 
-        batch_size=BATCH_SIZE, 
-        shuffle=True, 
-        num_workers=WORKERS, 
-        collate_fn=data.collate_fn, 
-        pin_memory=True 
-    )
-
-    epochs = ITERS // (len(train_data_loader) // BATCH_SIZE)
-    decay_lr_at = [it // (len(train_data_loader) // BATCH_SIZE) for it in DECAY_LR_AT]
-
-    # training loop 
-    for epoch in range(start_epoch, epochs): 
-        if epoch in decay_lr_at: 
-            # decay learning rate 
-            decay_lr(optimizer, DECAY_LR_COEFF)
-
-        # One epoch's training
-        train(train_loader=train_data_loader,
-              model=model,
-              criterion=criterion,
-              optimizer=optimizer,
-              epoch=epoch)
-
-        # Save checkpoint
-        save_checkpoint(model=model, optimizer=optimizer, epoch=epoch)
+    else:
+        # Evaluation mode
+        model.eval()
+        print("Model loaded with pretrained weights and set to evaluation mode")
+        
+        # You can now use the model for inference/detection
+        print("Ready for inference")
 
 
 def train(train_loader, model, criterion, optimizer, epoch): 
