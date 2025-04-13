@@ -51,19 +51,12 @@ def load_pretrained_ssd(model, weights_path):
     else:
         state_dict = checkpoint
     
-    # Filter out any keys that don't match the model (in case of different num_classes)
-    model_keys = set(model.state_dict().keys())
-    pretrained_keys = set(state_dict.keys())
-    
-    # Load matching keys
-    matching_weights = {k: v for k, v in state_dict.items() if k in model_keys}
-    
-    # Report on loading status
-    print(f"Loaded {len(matching_weights)}/{len(model_keys)} layers from pretrained weights")
     
     # Load weights into model
-    model.load_state_dict(matching_weights, strict=False)
-    
+    model.load_state_dict(state_dict, strict=False)
+
+
+    print("Model wieghts loaded with success")
     return model
 
 def main():
