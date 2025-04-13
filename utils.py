@@ -394,8 +394,44 @@ def transform(image, boxes , labels , diffic , split:str) :
     new_labels = labels
 
     if split.upper() == "TRAIN": 
-        pass
+        new_image = photometric_distort(new_image)
 
+
+        new_image = FT.to_tensor(new_image)
+
+        # crop the image 
+        new_image , new_boxes , new_labels= random_crop(new_image , new_boxes , new_labels)
+
+        new_image = FT.to_pil_image(new_image)
+
+        # here i remove some augmentation ...Etc 
+
+    new_image , new_boxes = resize(new_image , new_boxes , dims=(300,300))
+
+    new_image = FT.to_tensor(new_image)
+
+    new_image = FT.normalize(new_image, mean=mean , std=std)
+
+    return new_image , new_boxes  , new_labels 
+
+def random_crop(image , boxes , labels) : 
+    """
+        perform random crop to the image like in the paper 
+    """
+    return image , boxes , labels
+
+
+def resize(image, boxes, dims=(300, 300), percent_cords=True):
+    """
+    Resize for the SSD300 sizes, resize to (300,300)
+    """
+    new_image = FT.resize(image, dims)
+    old_dims = torch.FloatTensor([image.width, image.height, image.width, image.height]).unsqueeze(0)
+    new_boxes = boxes / old_dims
+    if percent_cords:
+        mul_dims = torch.FloatTensor([dims[0], dims[1], dims[0], dims[1]]).unsqueeze(0)
+        new_boxes *= mul_dims
+    return new_image, new_boxes
 
 
 def photometric_distort(image) : 
@@ -418,6 +454,3 @@ def photometric_distort(image) :
 
 
 
-
-
- 

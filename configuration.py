@@ -1,20 +1,27 @@
-###  this file contain some configuration  
 import torch
 
+# Data settings
 DATA_FOLDER = "./"
-KEEP_DIFFICULT = True 
-CHECKPOINTS = None # model path to checkpoints 
+LABELS_FOLDER = "./"  # Added missing labels folder path
+KEEP_DIFFICULT = True
+
+# Model settings
+CHECKPOINTS = None  # model path to checkpoints
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-BATCH_SIZE =8 
-ITERS = 120000
-WORKERS = 4 
-PRINT_FRAQ = 200 # PRINTING FRQUENCY
-LR = 1e-3
-DECAY_LR = [80000 , 10000] # DACY LEARNING RATE IN THIS EPOCHS 
-MOUMENTUM = 0.9 
-DACAY_LR_COEFF = 0.1
-WEIGHT_DACAY = 5E-4 
-GRAD_CLIP = None 
-
 N_CLASSES = 10
+
+# Training settings
+BATCH_SIZE = 8
+ITERS = 120000
+WORKERS = 4
+PRINT_FREQ = 200  # PRINTING FREQUENCY (fixed typo)
+GRAD_CLIP = None
+
+# Optimizer settings
+LR = 1e-3
+MOMENTUM = 0.9  # Fixed typo
+WEIGHT_DECAY = 5e-4  # Fixed typo
+
+# Learning rate schedule
+DECAY_LR_AT = [80000, 100000]  # DECAY LEARNING RATE AT THESE ITERATIONS (fixed typo and renamed for clarity)
+DECAY_LR_COEFF = 0.1  # Fixed typo

@@ -5,10 +5,16 @@ from utils import *
 from configuration import *
 from torch.utils.data import DataLoader
 from model import SSD300
+import argparse
+
+# Parse command line arguments
+parser = argparse.ArgumentParser(description='SSD300 Evaluation')
+parser.add_argument('--data_folder', required=True, help='Path to the data folder')
+parser.add_argument('--labels_folder', required=True, help='Path to the labels folder')
+args = parser.parse_args()
 
 # good printing
 pp = PrettyPrinter()
-
 # parameters
 # load the model to do inference
 checkpoint = torch.load(CHECKPOINTS)
@@ -16,7 +22,7 @@ model = checkpoint["model"]
 model: SSD300 = model.to(DEVICE)
 # eval mode
 model.eval()
-data = LoadData()
+data = AminiCocoaDataset(data_folder=args.data_folder, labels_folder=args.labels_folder)
 # test data
 test_data = DataLoader(
     data,
@@ -36,8 +42,8 @@ def eval(test_data, model: SSD300):
     """
     det_boxes = list()
     det_labels = list()
-    det_scores =list()
-    true_boxes =  list()
+    det_scores = list()
+    true_boxes = list()
     true_labels = list()
     true_difficulties = list()
     
@@ -63,11 +69,11 @@ def eval(test_data, model: SSD300):
             true_boxes.extend(boxes)
             true_labels.extend(labels)
             true_difficulties.extend(difficulties)
-    
-    # calculate mAP (mean average precision)
-    APs, mAP = calc_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels, true_difficulties)
-    pp.pprint(APs)
-    print(f"\nMean Average Precision (mAP): {mAP:.3f}")
+        
+        # calculate mAP (mean average precision)
+        APs, mAP = calc_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels, true_difficulties)
+        pp.pprint(APs)
+        print(f"\nMean Average Precision (mAP): {mAP:.3f}")
 
 if __name__ == '__main__':
     eval(test_data, model)
