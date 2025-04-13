@@ -47,7 +47,7 @@ class AminiCocoaDataset(Dataset):
         label = torch.LongTensor([row["class_id"]])
         
         # Apply transformation
-        image, boxes, label = transform(image, boxes, label)
+        image, boxes, label = transform(image, boxes, label , split=self.split)
         
         return image, boxes, label
 

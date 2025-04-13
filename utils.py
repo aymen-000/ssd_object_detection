@@ -370,7 +370,7 @@ def calc_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels, true_di
     return average_precisions, mean_average_precision
 
 
-def transform(image, boxes , labels , diffic , split:str) :
+def transform(image, boxes , labels , split) :
     """
     Apply the trnasfomration above 
 
