@@ -26,11 +26,9 @@ class AminiCocoaDataset(Dataset):
         if self.split == "train":
             self.csv_file = self.csv_train
             self.images_path = self.train_path
-            self.labels_path = self.train_labels
         else:
             self.csv_file = self.csv_test
             self.images_path = self.test_path
-            self.labels_path = self.test_labels
             
         self.df = pd.read_csv(self.csv_file)
 
