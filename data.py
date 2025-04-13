@@ -10,19 +10,17 @@ class AminiCocoaDataset(Dataset):
     """
     A pytorch class to be used in pytorch dataloader during training loop
     """
-    def __init__(self, data_folder, labels_folder=None, split="train", keep_difficult=False):
+    def __init__(self, data_folder, labels_folder , split="train", keep_difficult=False):
         super().__init__()
         self.split = split.lower()
         assert self.split in ["train", "test"]
         self.data_folder = data_folder
         self.keep_difficult = keep_difficult
         
-        self.csv_train = os.path.join(data_folder, "Train.csv")
-        self.csv_test = os.path.join(data_folder, "Test.csv")
+        self.csv_train = os.path.join(labels_folder, "Train.csv")
+        self.csv_test = os.path.join(labels_folder, "Test.csv")
         self.train_path = os.path.join(data_folder, 'images', 'train')
         self.test_path = os.path.join(data_folder, "images", "test")
-        self.train_labels = os.path.join(data_folder, 'labels', 'train')
-        self.test_labels = os.path.join(data_folder, "labels", "test")
         
         # Load the appropriate CSV based on split
         if self.split == "train":
