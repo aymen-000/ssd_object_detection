@@ -448,7 +448,7 @@ def photometric_distort(image) :
         if random.random() < 0.5 : 
             adjust_factor = random.uniform(0.5 , 1.5)
 
-        new_image = d(new_image , adjust_factor)
+            new_image = d(new_image , adjust_factor)
 
     return new_image
 
