@@ -8,10 +8,10 @@ KEEP_DIFFICULT = True
 # Model settings
 CHECKPOINTS = None  # model path to checkpoints
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-N_CLASSES = 10
+N_CLASSES = 3
 
 # Training settings
-BATCH_SIZE = 8
+BATCH_SIZE = 32
 ITERS = 120000
 WORKERS = 4
 PRINT_FREQ = 200  # PRINTING FREQUENCY (fixed typo)
