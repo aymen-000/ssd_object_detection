@@ -70,7 +70,7 @@ def main():
     model = SSD300(n_classes=N_CLASSES)
     
     # Load pretrained weights
-    #model = load_pretrained_ssd(model, args.pretrained_weights)
+    model = load_pretrained_ssd(model, args.pretrained_weights)
     
     # Move to device
     model = model.to(DEVICE)
