@@ -531,7 +531,7 @@ class BoxLoss(nn.Module):
         self.alpha = alpha 
 
         self.smoothL1 = nn.L1Loss()  # Used in the paper
-        self.crossEntropy = nn.CrossEntropyLoss(reduction='none')  # ✅ Fixed
+        self.crossEntropy = nn.CrossEntropyLoss(reduction='none')  # Fixed
 
     def forward(self, predicted_locs, predicted_scores, boxes, labels):  
         """

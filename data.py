@@ -10,7 +10,7 @@ class AminiCocoaDataset(Dataset):
     """
     A pytorch class to be used in pytorch dataloader during training loop
     """
-    def __init__(self, data_folder, labels_folder , split="train", keep_difficult=False):
+    def __init__(self, data_folder, labels_folder , split="train",  keep_difficult=False ):
         super().__init__()
         self.split = split.lower()
         assert self.split in ["train", "test"]
