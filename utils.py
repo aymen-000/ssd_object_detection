@@ -453,4 +453,27 @@ def photometric_distort(image) :
     return new_image
 
 
+def split_data(data_df: pd.DataFrame, split_ratio=0.1):
+    """
+    Shuffle and split the DataFrame into training and validation sets.
 
+    Args:
+        data_df (pd.DataFrame): Input DataFrame with columns like
+            ['Image_ID', 'class', 'confidence', 'ymin', 'xmin', 'ymax', 'xmax', 'class_id', 'ImagePath'].
+        split_ratio (float): Fraction of the dataset to be used for validation.
+
+    Returns:
+        train_df (pd.DataFrame): Training set.
+        val_df (pd.DataFrame): Validation set.
+    """
+    # Shuffle the DataFrame
+    df_shuffled = data_df.sample(frac=1, random_state=42).reset_index(drop=True)
+    
+    # Compute split index
+    split_index = int(len(df_shuffled) * (1 - split_ratio))
+    
+    # Split into train and validation
+    train_df = df_shuffled.iloc[:split_index]
+    val_df = df_shuffled.iloc[split_index:]
+    
+    return train_df, val_df

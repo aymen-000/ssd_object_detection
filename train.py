@@ -10,6 +10,7 @@ from torch.utils.data import DataLoader, Dataset
 from torch.optim import SGD
 from data import * 
 from tqdm import tqdm
+import pandas as pd 
 cudnn.benchmark = True 
 
 def parse_args():
@@ -56,9 +57,36 @@ def load_pretrained_ssd(model, weights_path):
     # Load weights into model
     model.load_state_dict(state_dict, strict=False)
 
-
-    print("Model wieghts loaded with success")
+    print("Model weights loaded with success")
     return model
+
+def split_data(df, val_ratio=0.2, seed=42):
+    """
+    Split dataframe into training and validation sets
+    
+    Args:
+        df: DataFrame containing the data
+        val_ratio: Ratio of validation data
+        seed: Random seed for reproducibility
+        
+    Returns:
+        train_df, val_df: Split dataframes
+    """
+    # Set random seed for reproducibility
+    np.random.seed(seed)
+    
+    # Get unique image IDs to ensure we split by images, not by annotations
+    unique_images = df["Image_ID"].unique()
+    n_val = int(len(unique_images) * val_ratio)
+    
+    # Randomly select images for validation
+    val_images = np.random.choice(unique_images, size=n_val, replace=False)
+    
+    # Split dataframe accordingly
+    train_df = df[~df["Image_ID"].isin(val_images)]
+    val_df = df[df["Image_ID"].isin(val_images)]
+    
+    return train_df, val_df
 
 def main():
     """
@@ -93,16 +121,29 @@ def main():
         # Calculate loss 
         criterion = BoxLoss(priors=model.priors).to(DEVICE)
         
-        # Working with data
-        data = AminiCocoaDataset(data_folder=args.data_folder, labels_folder=args.labels_folder)
-
+        # Working with data 
+        df = pd.read_csv(os.path.join(args.labels_folder, "Train.csv"))    
+        train_df, val_df = split_data(df)
+        
+        valid_data = AminiCocoaDataset(args.data_folder, args.labels_folder, df=val_df, split="val")
+        train_data = AminiCocoaDataset(args.data_folder, args.labels_folder, df=train_df, split="train")
+        
         train_data_loader = DataLoader(
-            data, 
+            train_data, 
             batch_size=BATCH_SIZE, 
             shuffle=True, 
             num_workers=WORKERS, 
-            collate_fn=data.collate_fn, 
+            collate_fn=train_data.collate_fn, 
             pin_memory=True 
+        )
+        
+        valid_data_loader = DataLoader(
+            valid_data, 
+            batch_size=32, 
+            shuffle=False, 
+            num_workers=WORKERS, 
+            collate_fn=valid_data.collate_fn,
+            pin_memory=True
         )
 
         # For fine-tuning, use fewer iterations
@@ -119,6 +160,7 @@ def main():
 
             # One epoch's training
             train(train_loader=train_data_loader,
+                val_loader=valid_data_loader,
                 model=model,
                 criterion=criterion,
                 optimizer=optimizer,
@@ -136,7 +178,7 @@ def main():
         print("Ready for inference")
 
 
-def train(train_loader, model, criterion, optimizer, epoch): 
+def train(train_loader, val_loader, model, criterion, optimizer, epoch): 
     model.train()  # training mode enables dropout
 
     batch_time = AverageMeter()  # forward prop. + back prop. time
@@ -182,8 +224,64 @@ def train(train_loader, model, criterion, optimizer, epoch):
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\t'.format(epoch, batch_idx, len(train_loader),
                                                                   batch_time=batch_time,
                                                                   data_time=data_time, loss=losses))
-    torch.save(model , "SSD300_finetuned.pth")
+    
+    # Validate after each epoch
+    validate(val_loader, model, criterion)
+    
+    # Save model
+    torch.save(model.state_dict(), f"SSD300_finetuned_epoch_{epoch}.pth")
+    
     del predicted_locs, predicted_scores, images, boxes, labels  # free some memory since their histories may be stored
+
+
+def validate(val_loader, model, criterion):
+    """
+    Validate the model on the validation set
+    
+    Args:
+        val_loader: Validation data loader
+        model: SSD300 model
+        criterion: Loss function
+    """
+    model.eval()  # eval mode disables dropout
+    
+    batch_time = AverageMeter()
+    losses = AverageMeter()
+    
+    start = time.time()
+    
+    # No gradients needed for validation
+    with torch.no_grad():
+        for i, (images, boxes, labels) in enumerate(val_loader):
+            # Move to default device
+            images = images.to(DEVICE)
+            boxes = [b.to(DEVICE) for b in boxes]
+            labels = [l.to(DEVICE) for l in labels]
+            
+            # Forward prop
+            predicted_locs, predicted_scores = model(images)
+            
+            # Loss
+            loss = criterion(predicted_locs, predicted_scores, boxes, labels)
+            
+            losses.update(loss.item(), images.size(0))
+            batch_time.update(time.time() - start)
+            
+            start = time.time()
+            
+            # Print status
+            if i % PRINT_FREQ == 0:
+                print('Validation: [{0}/{1}]\t'
+                      'Batch Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                      'Loss {loss.val:.4f} ({loss.avg:.4f})\t'.format(i, len(val_loader),
+                                                                      batch_time=batch_time,
+                                                                      loss=losses))
+    
+    print('\n * VALIDATION LOSS - {loss.avg:.3f}\n'.format(loss=losses))
+    
+    model.train()  # Back to training mode
+    
+    return losses.avg
 
 
 if __name__ == "__main__":
