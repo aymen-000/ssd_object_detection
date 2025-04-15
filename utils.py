@@ -453,7 +453,7 @@ def photometric_distort(image) :
     return new_image
 
 
-def split_data(data_df: pd.DataFrame, split_ratio=0.1):
+def split_data(data_df, split_ratio=0.1):
     """
     Shuffle and split the DataFrame into training and validation sets.
 
