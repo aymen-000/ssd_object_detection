@@ -12,7 +12,7 @@ N_CLASSES = 3
 
 # Training settings
 BATCH_SIZE = 32
-ITERS = 1200
+ITERS = 120
 WORKERS = 4
 PRINT_FREQ = 200  # PRINTING FREQUENCY (fixed typo)
 GRAD_CLIP = None
@@ -23,5 +23,5 @@ MOMENTUM = 0.9  # Fixed typo
 WEIGHT_DECAY = 5e-4  # Fixed typo
 
 # Learning rate schedule
-DECAY_LR_AT = [800, 1000]  # DECAY LEARNING RATE AT THESE ITERATIONS (fixed typo and renamed for clarity)
+DECAY_LR_AT = [80, 100]  # DECAY LEARNING RATE AT THESE ITERATIONS (fixed typo and renamed for clarity)
 DECAY_LR_COEFF = 0.1  # Fixed typo
