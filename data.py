@@ -20,7 +20,7 @@ class AminiCocoaDataset(Dataset):
         self.df = df.reset_index(drop=True)
         self.image_root = image_root
         self.split = split.lower()
-        assert self.split in ["train", "test"]
+        assert self.split in ["train", "test" , "val"]
         self.keep_difficult = keep_difficult
 
     def __getitem__(self, index):

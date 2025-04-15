@@ -126,8 +126,8 @@ def main():
         df = pd.read_csv(os.path.join(args.labels_folder, "Train.csv"))    
         train_df, val_df = split_data(df)
         
-        valid_data = AminiCocoaDataset(args.data_folder, args.labels_folder, df=val_df, split="val")
-        train_data = AminiCocoaDataset(args.data_folder, args.labels_folder, df=train_df, split="train")
+        valid_data = AminiCocoaDataset(args.data_folder,  df=val_df, split="val")
+        train_data = AminiCocoaDataset(args.data_folder, df=train_df, split="train")
         
         train_data_loader = DataLoader(
             train_data, 
