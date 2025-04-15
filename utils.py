@@ -132,22 +132,22 @@ def decay_lr(optimizer: torch.optim.Optimizer, decay_factor):
     print(f"DECAY LEARNING RATE.\nTHE NEW LR IS: {optimizer.param_groups[0]['lr']}")
 
 
-def save_checkpoints(epoch, model, optimizer , filename):
+def save_checkpoints(epoch, model, optimizer, filename):
     """
     Save model checkpoints.
     Args:
         epoch: epoch number
         model: model used
         optimizer: optimizer used
+        filename: base name for saving the checkpoint
     Return: None
     """
-    s = {
-        "epochs": epoch,
-        "model": model,
-        "optimizer": optimizer
+    checkpoint = {
+        "epoch": epoch,
+        "model_state_dict": model.state_dict(),
+        "optimizer_state_dict": optimizer.state_dict()
     }
-    fil= f'{filename}.pth.tar'
-    torch.save(s, file)
+    torch.save(checkpoint, f'{filename}.pth.tar')
 
 class AverageMeter(object) : 
     def __init__(self):
