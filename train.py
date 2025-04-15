@@ -11,6 +11,7 @@ from torch.optim import SGD
 from data import * 
 from tqdm import tqdm
 import pandas as pd 
+import numpy as np
 cudnn.benchmark = True 
 
 def parse_args():
