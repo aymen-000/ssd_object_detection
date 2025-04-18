@@ -11,7 +11,7 @@ import pandas as pd
 # Parse command line arguments
 parser = argparse.ArgumentParser(description='SSD300 Evaluation')
 parser.add_argument('--data_folder', required=True, help='Path to the data folder')
-parser.add_argument('--labels_folder', required=True, help='Path to the labels folder')
+parser.add_argument('--labels_file', required=True, help='Path to the labels folder')
 parser.add_argument("--model_path", required=True, help="Path to state dict model")
 args = parser.parse_args()
 
@@ -20,9 +20,9 @@ pp = PrettyPrinter()
 
 # split data to get validation data 
 # Load the data
-df = pd.read_csv(args.data_folder)
+df = pd.read_csv(args.labels_file)
 _, val_data = split_data(df)
-data = AminiCocoaDataset(val_data, args.labels_folder, split="val")
+data = AminiCocoaDataset(val_data, args.data_folder, split="val")
 
 # Test data loader
 test_data = DataLoader(
