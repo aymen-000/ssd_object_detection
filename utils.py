@@ -477,3 +477,17 @@ def split_data(data_df, split_ratio=0.1):
     val_df = df_shuffled.iloc[split_index:]
     
     return train_df, val_df
+
+def state_dict_to_model(model: torch.nn.Module, state_dict):
+    """
+    Load a state dictionary into a model to perform inference or training
+    
+    Args:
+        model: PyTorch model to load weights into
+        state_dict: State dictionary containing model weights
+        
+    Returns:
+        The model with loaded weights
+    """
+    model.load_state_dict(state_dict)
+    return model

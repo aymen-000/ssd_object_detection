@@ -6,24 +6,25 @@ from configuration import *
 from torch.utils.data import DataLoader
 from model import SSD300
 import argparse
+import pandas as pd
 
 # Parse command line arguments
 parser = argparse.ArgumentParser(description='SSD300 Evaluation')
 parser.add_argument('--data_folder', required=True, help='Path to the data folder')
 parser.add_argument('--labels_folder', required=True, help='Path to the labels folder')
+parser.add_argument("--model_path", required=True, help="Path to state dict model")
 args = parser.parse_args()
 
-# good printing
+# Good printing
 pp = PrettyPrinter()
-# parameters
-# load the model to do inference
-checkpoint = torch.load(CHECKPOINTS)
-model = checkpoint["model"]
-model: SSD300 = model.to(DEVICE)
-# eval mode
-model.eval()
-data = AminiCocoaDataset(data_folder=args.data_folder, labels_folder=args.labels_folder)
-# test data
+
+# split data to get validation data 
+# Load the data
+df = pd.read_csv(args.data_folder)
+_, val_data = split_data(df)
+data = AminiCocoaDataset(val_data, args.labels_folder, split="val")
+
+# Test data loader
 test_data = DataLoader(
     data,
     batch_size=BATCH_SIZE,
@@ -32,6 +33,13 @@ test_data = DataLoader(
     num_workers=WORKERS,
     pin_memory=True
 )
+
+# Initialize and load the model
+model = SSD300(n_classes=N_CLASSES)
+state_dict = torch.load(args.model_path)
+model = state_dict_to_model(model, state_dict)
+model = model.to(DEVICE)
+model.eval()
 
 def eval(test_data, model: SSD300):
     """
@@ -48,7 +56,7 @@ def eval(test_data, model: SSD300):
     true_difficulties = list()
     
     with torch.no_grad():
-        for batch, (images, labels, boxes, difficulties) in enumerate(tqdm(test_data)):
+        for batch, (images, boxes, labels, difficulties) in enumerate(tqdm(test_data)):
             images = images.to(DEVICE)
             pred_locs, pred_scores = model(images)
             det_boxes_batch, det_labels_batch, det_scores_batch = model.detect_objects(
@@ -69,11 +77,11 @@ def eval(test_data, model: SSD300):
             true_boxes.extend(boxes)
             true_labels.extend(labels)
             true_difficulties.extend(difficulties)
-        
-        # calculate mAP (mean average precision)
-        APs, mAP = calc_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels, true_difficulties)
-        pp.pprint(APs)
-        print(f"\nMean Average Precision (mAP): {mAP:.3f}")
+    
+    # Calculate mAP (mean average precision)
+    APs, mAP = calc_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels, true_difficulties)
+    pp.pprint(APs)
+    print(f"\nMean Average Precision (mAP): {mAP:.3f}")
 
 if __name__ == '__main__':
     eval(test_data, model)
