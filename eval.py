@@ -13,7 +13,7 @@ parser = argparse.ArgumentParser(description='SSD300 Evaluation')
 parser.add_argument('--data_folder', required=True, help='Path to the data folder')
 parser.add_argument('--labels_file', required=True, help='Path to the labels folder')
 parser.add_argument("--model_path", required=True, help="Path to state dict model")
-parser.add_argument("--label_map" ,default="./labels.json" ,  required=True , help="add lable map in json format {class_id : class}")
+parser.add_argument("--label_map" ,default="./labels.json"  , help="add lable map in json format {class_id : class}")
 args = parser.parse_args()
 
 # Good printing
