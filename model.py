@@ -335,7 +335,7 @@ class SSD300(nn.Module) :
         self.model =VGGBaseModel()
         self.aux_conv = AuxiliaryConvolutions()
         self.pred_convs = PredictionConvolutions(n_classes=n_classes)
-
+        self.device = device
         self.scal_f = nn.Parameter(torch.FloatTensor(1,512 , 1, 1))
         nn.init.constant_(self.scal_f , 20)
         self.priors = self.create_prior_boxes()
