@@ -69,15 +69,12 @@ def eval(test_data, model: SSD300):
             
             boxes = [b.to(DEVICE) for b in boxes]
             labels = [l.to(DEVICE) for l in labels]
-            difficulties = [d.to(DEVICE) for d in difficulties]
             
             det_boxes.extend(det_boxes_batch)
             det_labels.extend(det_labels_batch)
             det_scores.extend(det_scores_batch)
             true_boxes.extend(boxes)
             true_labels.extend(labels)
-            true_difficulties.extend(difficulties)
-    
     # Calculate mAP (mean average precision)
     APs, mAP = calc_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels, true_difficulties)
     pp.pprint(APs)

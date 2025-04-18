@@ -238,7 +238,7 @@ def calc_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels, true_di
         det_scores: List of tensors, confidence scores for each detection
         true_boxes: List of tensors, ground truth bounding boxes for each image
         true_labels: List of tensors, ground truth labels for each image
-        true_difficulties: List of tensors, difficulty flags for each ground truth object
+        true_difficulties: List of tensors, difficulty flags for each ground truth object(i ignore it)
         label_map: Dictionary mapping label names to indices
         rev_label_map: Dictionary mapping indices to label names
 
@@ -246,7 +246,7 @@ def calc_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels, true_di
         average_precisions: Dictionary of AP for all classes
         mean_average_precision: mAP value
     """
-    assert len(det_boxes) == len(det_labels) == len(det_scores) == len(true_boxes) == len(true_labels) == len(true_difficulties)
+    assert len(det_boxes) == len(det_labels) == len(det_scores) == len(true_boxes) == len(true_labels)
     n_classes = len(label_map)
 
     # Prepare data
@@ -270,7 +270,6 @@ def calc_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels, true_di
     det_scores = torch.cat(det_scores, dim=0)
     true_boxes = torch.cat(true_boxes, dim=0)
     true_labels = torch.cat(true_labels, dim=0)
-    true_difficulties = torch.cat(true_difficulties, dim=0)
 
     # Initialize AP tensor
     AP = torch.zeros(n_classes - 1, dtype=torch.float).to(DEVICE)
@@ -279,11 +278,7 @@ def calc_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels, true_di
     for c in range(1, n_classes):
         # Extract objects with class c
         class_images = images_index[true_labels == c]
-        class_boxes = true_boxes[true_labels == c]
-        class_difficulties = true_difficulties[true_labels == c]
-        
-        # Count number of easy (non-difficult) objects
-        easy_class_obj = (1 - class_difficulties).sum().item()
+        class_boxes = true_boxes[true_labels == c]        
         
         # Extract detections with class c
         det_class_images = det_images[det_labels == c]
@@ -313,7 +308,6 @@ def calc_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels, true_di
             
             # Find ground truth boxes for this image
             t_object_boxes = class_boxes[class_images == this_image]
-            t_object_diff = class_difficulties[class_images == this_image]
             
             if t_object_boxes.size(0) == 0:
                 # No ground truth boxes in this image
@@ -329,13 +323,11 @@ def calc_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels, true_di
             
             # Determine if detection is TP or FP
             if max_overlap.item() > 0.5:
-                if t_object_diff[ind] == 0:  # Not difficult
                     if class_boxes_detected[original_ind] == 0:
                         TP[d] = 1
                         class_boxes_detected[original_ind] = 1
                     else:
                         FP[d] = 1
-                # If object is difficult, ignore it
             else:
                 FP[d] = 1
         
