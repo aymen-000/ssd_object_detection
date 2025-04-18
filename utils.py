@@ -5,6 +5,7 @@ import os
 from configuration import *
 import torchvision.transforms.functional as FT
 import random
+import json
 def decimate(tensor , m) : 
     """
         Decimate tensor by factor m 
@@ -337,7 +338,7 @@ def calc_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels, true_di
         
         # Calculate precision and recall
         cumul_precision = cumul_TP / (cumul_TP + cumul_FP + 1e-10)
-        cumul_recall = cumul_TP / (easy_class_obj + 1e-10)
+        cumul_recall = cumul_TP / torch.FloatTensor([class_boxes.size(0)]).to(DEVICE)
         
         # Calculate average precision
         recall_thresholds = torch.arange(start=0, end=1.1, step=0.1).to(DEVICE)
@@ -360,7 +361,6 @@ def calc_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels, true_di
     average_precisions = {rev_label_map[c + 1]: v.item() for c, v in enumerate(AP)}
     
     return average_precisions, mean_average_precision
-
 
 def transform(image, boxes , labels , split) :
     """
@@ -483,3 +483,11 @@ def state_dict_to_model(model: torch.nn.Module, state_dict):
     """
     model.load_state_dict(state_dict)
     return model
+
+def parse_json(json_file):
+    with open(json_file, "r") as f:
+        label_map = json.load(f)
+    
+    rev_map = {v: k for k, v in label_map.items()}
+    
+    return label_map, rev_map

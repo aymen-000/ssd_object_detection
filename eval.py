@@ -13,14 +13,16 @@ parser = argparse.ArgumentParser(description='SSD300 Evaluation')
 parser.add_argument('--data_folder', required=True, help='Path to the data folder')
 parser.add_argument('--labels_file', required=True, help='Path to the labels folder')
 parser.add_argument("--model_path", required=True, help="Path to state dict model")
+parser.add_argument("--label_map" ,default="./labels.json" ,  required=True , help="add lable map in json format {class_id : class}")
 args = parser.parse_args()
 
 # Good printing
 pp = PrettyPrinter()
-
 # split data to get validation data 
 # Load the data
 df = pd.read_csv(args.labels_file)
+labels_map , rev_labels_map = parse_json(args.label_map)
+
 _, val_data = split_data(df)
 data = AminiCocoaDataset(val_data, args.data_folder, split="val")
 
@@ -76,7 +78,7 @@ def eval(test_data, model: SSD300):
             true_boxes.extend(boxes)
             true_labels.extend(labels)
     # Calculate mAP (mean average precision)
-    APs, mAP = calc_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels, true_difficulties)
+    APs, mAP = calc_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels, true_difficulties , label_map=labels_map , rev_label_map=rev_labels_map)
     pp.pprint(APs)
     print(f"\nMean Average Precision (mAP): {mAP:.3f}")
 
