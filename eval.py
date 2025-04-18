@@ -56,7 +56,7 @@ def eval(test_data, model: SSD300):
     true_difficulties = list()
     
     with torch.no_grad():
-        for batch, (images, boxes, labels, difficulties) in enumerate(tqdm(test_data)):
+        for batch, (images, boxes, labels ) in enumerate(tqdm(test_data)):
             images = images.to(DEVICE)
             pred_locs, pred_scores = model(images)
             det_boxes_batch, det_labels_batch, det_scores_batch = model.detect_objects(
