@@ -14,6 +14,7 @@ import pandas as pd
 import numpy as np
 cudnn.benchmark = True 
 
+
 def parse_args():
     """
     Parse command line arguments for training
@@ -27,9 +28,8 @@ def parse_args():
     # Pretrained weights parameters
     parser.add_argument('--pretrained_weights', required=True, help='Path to pretrained SSD300 weights')
     parser.add_argument('--fine_tune', action='store_true', help='Fine-tune the model if specified')
-    
+    parser.add_argument("--label_map" , required=True , help="label map in the format of json {class : id }")
     return parser.parse_args()
-
 def load_pretrained_ssd(model, weights_path):
     """
     Load pretrained SSD300 weights
@@ -98,7 +98,10 @@ def main():
     
     # Initialize model
     model = SSD300(n_classes=N_CLASSES)
-    
+
+
+    labels_map , rev_labels_map = parse_json(args.label_map)
+
     # Load pretrained weights
     model = load_pretrained_ssd(model, args.pretrained_weights)
     
@@ -165,7 +168,9 @@ def main():
                 model=model,
                 criterion=criterion,
                 optimizer=optimizer,
-                epoch=epoch)
+                epoch=epoch , 
+                rev_map=rev_labels_map , 
+                lab_map=labels_map)
 
             # Save checkpoint
             save_checkpoints(model=model, optimizer=optimizer, epoch=epoch, filename=f'fine_tuned_ssd300_epoch_{epoch}.pth')
@@ -179,7 +184,7 @@ def main():
         print("Ready for inference")
 
 
-def train(train_loader, val_loader, model, criterion, optimizer, epoch): 
+def train(train_loader, val_loader, model, criterion, optimizer, epoch , rev_map , lab_map): 
     model.train()  # training mode enables dropout
 
     batch_time = AverageMeter()  # forward prop. + back prop. time
@@ -227,7 +232,7 @@ def train(train_loader, val_loader, model, criterion, optimizer, epoch):
                                                                   data_time=data_time, loss=losses))
     
     # Validate after each epoch
-    validate(val_loader, model, criterion)
+    validate(val_loader, model, criterion , rev_labels_map=rev_map , labels_map=lab_map)
     
     # Save model
     torch.save(model.state_dict(), f"SSD300_finetuned_epoch_{epoch}.pth")
@@ -235,7 +240,7 @@ def train(train_loader, val_loader, model, criterion, optimizer, epoch):
     del predicted_locs, predicted_scores, images, boxes, labels  # free some memory since their histories may be stored
 
 
-def validate(val_loader, model, criterion):
+def validate(val_loader, model : SSD300, criterion , labels_map , rev_labels_map):
     """
     Validate the model on the validation set
     
@@ -252,6 +257,11 @@ def validate(val_loader, model, criterion):
     start = time.time()
     
     # No gradients needed for validation
+    true_boxes = list()
+    true_labels = list()
+    det_boxes =  list()
+    det_scores = list()
+    det_labels = list()
     with torch.no_grad():
         for i, (images, boxes, labels) in enumerate(val_loader):
             # Move to default device
@@ -277,10 +287,27 @@ def validate(val_loader, model, criterion):
                       'Loss {loss.val:.4f} ({loss.avg:.4f})\t'.format(i, len(val_loader),
                                                                       batch_time=batch_time,
                                                                       loss=losses))
-    
+                
+            det_boxes_batch, det_labels_batch, det_scores_batch = model.detect_objects(
+                pred_locs=predicted_locs,
+                pred_scores=predicted_scores,
+                threshold=0.01,
+                max_overlap=0.45,
+                k=200
+            )
+            det_boxes.extend(det_boxes_batch)
+            det_labels.extend(det_labels_batch)
+            det_scores.extend(det_scores_batch)
+            true_boxes.extend(boxes)
+            true_labels.extend(labels)
+
     print('\n * VALIDATION LOSS - {loss.avg:.3f}\n'.format(loss=losses))
 
     # add MAP here 
+    # Calculate mAP (mean average precision)
+    true_difficulties =list()
+    _ , mAP = calc_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels, true_difficulties , label_map=labels_map , rev_label_map=rev_labels_map)
+    print(f"\nMean Average Precision (mAP)  for validation is : {mAP:.3f}")
     model.train()  # Back to training mode
     
     return losses.avg
