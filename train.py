@@ -197,6 +197,7 @@ def train(train_loader, val_loader, model, criterion, optimizer, epoch , rev_map
 
         # Move to default device
         images = images.to(DEVICE)  # (batch_size (N), 3, 300, 300)
+        boxes = [b/300 for b in boxes]
         boxes = [b.to(DEVICE) for b in boxes]
         labels = [l.to(DEVICE) for l in labels]
 
