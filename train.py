@@ -279,7 +279,8 @@ def validate(val_loader, model, criterion):
                                                                       loss=losses))
     
     print('\n * VALIDATION LOSS - {loss.avg:.3f}\n'.format(loss=losses))
-    
+
+    # add MAP here 
     model.train()  # Back to training mode
     
     return losses.avg

@@ -396,7 +396,7 @@ def transform(image, boxes , labels , split) :
 
         new_image = FT.to_pil_image(new_image)
 
-        # here i remove some augmentation ...Etc 
+        # here i remove some augmentations ...Etc 
 
     new_image , new_boxes = resize(new_image , new_boxes , dims=(300,300))
 
