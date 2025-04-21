@@ -31,7 +31,7 @@ class AminiCocoaDataset(Dataset):
         image = Image.open(image_path).convert("RGB")
         
         # Normalize bounding boxes
-        boxes = [row["xmin"] , row["ymin"] , row["xmax"], row["ymax"] ]
+        boxes = [row["xmin"] /300, row["ymin"]/300 , row["xmax"]/300, row["ymax"]/300 ]
         boxes = torch.FloatTensor(boxes)
 
         label = torch.LongTensor([row["class_id"]])
