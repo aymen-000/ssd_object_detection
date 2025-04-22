@@ -375,11 +375,12 @@ def transform(image, boxes , labels , split) :
 
     Return : 
         transformed image , transformed bboxe , transformed labels, transformed diffic 
-    """
+    """ 
 
 
-    mean = [0.485, 0.456, 0.406]
-    std = [0.229, 0.224, 0.225]
+
+
+
 
     new_image = image  
     new_boxes = boxes 
@@ -400,9 +401,8 @@ def transform(image, boxes , labels , split) :
 
     new_image , new_boxes = resize(new_image , new_boxes , dims=(300,300))
 
-    new_image = FT.to_tensor(new_image)
+    new_image = FT.to_tensor(new_image) / 255.0
 
-    new_image = FT.normalize(new_image, mean=mean , std=std)
 
     return new_image , new_boxes  , new_labels 
 
