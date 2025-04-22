@@ -61,7 +61,7 @@ def load_pretrained_ssd(model, weights_path):
     print("Model weights loaded with success")
     return model
 
-def split_data(df, val_ratio=0.2, seed=42):
+def split_data(df, val_ratio=0.05, seed=42):
     """
     Split dataframe into training and validation sets
     
